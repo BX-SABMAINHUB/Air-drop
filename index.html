@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abraham — Dashboard & Room</title>
+
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js">
+    </script>
+
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #111118;
+            --surface2: #16161f;
+            --border: #1e1e2c;
+            --text: #e0e0e8;
+            --text2: #a0a0b8;
+            --neon-blue: #4da8ff;
+            --neon-purple: #9b5eff;
+            --neon-glow-blue: 0 0 20px rgba(77, 168, 255, 0.5), 0 0 60px rgba(77, 168, 255, 0.2);
+            --neon-glow-purple: 0 0 20px rgba(155, 94, 255, 0.5), 0 0 60px rgba(155, 94, 255, 0.2);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            background-image:
+                radial-gradient(ellipse at 30% 20%, rgba(77, 168, 255, 0.06) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 70%, rgba(155, 94, 255, 0.06) 0%, transparent 60%),
+                radial-gradient(ellipse at 50% 50%, rgba(30, 30, 50, 0.4) 0%, transparent 80%);
+        }
+
+        /* ── Contenedor principal ── */
+        .app-container {
+            width: 100%;
+            max-width: 520px;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* ── Tarjeta ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 36px 28px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+            animation: fadeSlideUp 0.5s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 20%;
+            right: 20%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(155, 94, 255, 0.5), rgba(77, 168, 255, 0.5), transparent);
+            border-radius: 50%;
+        }
+
+        @keyframes fadeSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @keyframes pulse {
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(77, 168, 255, 0.4), 0 0 50px rgba(77, 168, 255, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 35px rgba(155, 94, 255, 0.6), 0 0 80px rgba(155, 94, 255, 0.25);
+            }
+        }
+        @keyframes glowPulse {
+            0%,
+            100% {
+                text-shadow: 0 0 20px rgba(77, 168, 255, 0.7), 0 0 50px rgba(77, 168, 255, 0.3), 0 0 80px rgba(155, 94, 255, 0.2);
+            }
+            50% {
+                text-shadow: 0 0 30px rgba(155, 94, 255, 0.9), 0 0 70px rgba(155, 94, 255, 0.5), 0 0 110px rgba(77, 168, 255, 0.35);
+            }
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        @keyframes toastOut {
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.85);
+            }
+        }
+
+        /* ── Header ── */
+        .main-title {
+            text-align: center;
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple), var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            animation: glowPulse 3s ease-in-out infinite;
+        }
+        .subtitle {
+            text-align: center;
+            color: var(--text2);
+            font-size: 0.9rem;
+            margin-bottom: 28px;
+            letter-spacing: 0.04em;
+        }
+
+        /* ── Botones ── */
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px 24px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            letter-spacing: 0.02em;
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+            margin-bottom: 12px;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #3d7dd8, #5b4dce);
+            color: #fff;
+            box-shadow: 0 4px 18px rgba(77, 120, 220, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--neon-glow-blue), 0 6px 24px rgba(77, 120, 220, 0.45);
+        }
+        .btn-secondary {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1.5px solid var(--border);
+        }
+        .btn-secondary:hover {
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 20px rgba(155, 94, 255, 0.25);
+            transform: translateY(-2px);
+        }
+        .btn-accent {
+            background: linear-gradient(135deg, #6c3ce0, #9b5eff);
+            color: #fff;
+            box-shadow: 0 4px 18px rgba(155, 94, 255, 0.35);
+        }
+        .btn-accent:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--neon-glow-purple), 0 6px 24px rgba(155, 94, 255, 0.5);
+        }
+        .btn:active {
+            transform: scale(0.97);
+            transition: 0.1s;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .btn-sm {
+            display: inline-block;
+            width: auto;
+            padding: 10px 18px;
+            font-size: 0.9rem;
+            margin: 4px;
+        }
+
+        /* ── Inputs ── */
+        .input-group {
+            margin-bottom: 16px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            color: var(--text2);
+            letter-spacing: 0.03em;
+            font-weight: 500;
+        }
+        .input-field {
+            width: 100%;
+            padding: 13px 16px;
+            border-radius: var(--radius-sm);
+            border: 1.5px solid var(--border);
+            background: var(--surface2);
+            color: var(--text);
+            font-size: 1rem;
+            transition: var(--transition);
+            font-family: inherit;
+            resize: vertical;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 16px rgba(77, 168, 255, 0.2);
+        }
+        .input-field::placeholder {
+            color: #555;
+        }
+        textarea.input-field {
+            min-height: 90px;
+        }
+
+        /* ── ID Display ── */
+        .id-display {
+            text-align: center;
+            font-size: 5.5rem;
+            font-weight: 900;
+            letter-spacing: 0.06em;
+            background: linear-gradient(180deg, #fff 0%, #c0d0ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: glowPulse 3s ease-in-out infinite;
+            padding: 20px 0;
+            user-select: all;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .id-label {
+            text-align: center;
+            color: var(--text2);
+            font-size: 0.85rem;
+            letter-spacing: 0.08em;
+            margin-top: 4px;
+            text-transform: uppercase;
+        }
+        .id-card {
+            background: var(--surface2);
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px 20px;
+            animation: pulse 3s ease-in-out infinite;
+            margin: 16px 0;
+        }
+
+        /* ── Toast / Notificaciones ── */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            background: var(--surface2);
+            border: 1.5px solid var(--neon-purple);
+            border-radius: var(--radius-sm);
+            padding: 14px 22px;
+            color: var(--text);
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 18px rgba(155, 94, 255, 0.3);
+            animation: toastIn 0.4s ease-out;
+            pointer-events: auto;
+            text-align: center;
+            max-width: 90vw;
+            letter-spacing: 0.02em;
+        }
+        .toast.leaving {
+            animation: toastOut 0.35s ease-in forwards;
+        }
+        .toast.success {
+            border-color: #4dca7a;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 18px rgba(77, 202, 122, 0.3);
+        }
+        .toast.error {
+            border-color: #e05555;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 18px rgba(224, 85, 85, 0.3);
+        }
+
+        /* ── Received Items ── */
+        .received-section {
+            margin-top: 20px;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+        .received-title {
+            font-size: 0.85rem;
+            color: var(--text2);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .received-item {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            animation: slideIn 0.4s ease-out;
+            transition: var(--transition);
+        }
+        .received-item:hover {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 14px rgba(77, 168, 255, 0.12);
+        }
+        .received-item .sender {
+            font-weight: 700;
+            color: var(--neon-purple);
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+        }
+        .received-item .msg-text {
+            color: var(--text);
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+        .received-item img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            display: block;
+            margin: 8px 0;
+            border: 1px solid var(--border);
+        }
+        .received-item .time {
+            font-size: 0.75rem;
+            color: var(--text2);
+            margin-top: 6px;
+        }
+        .download-link {
+            display: inline-block;
+            color: var(--neon-blue);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: rgba(77, 168, 255, 0.08);
+            transition: var(--transition);
+            margin-top: 4px;
+        }
+        .download-link:hover {
+            background: rgba(77, 168, 255, 0.18);
+            box-shadow: 0 0 12px rgba(77, 168, 255, 0.2);
+        }
+
+        /* ── Connection Status ── */
+        .status-dot {
+            display: inline-block;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+        .status-dot.online {
+            background: #4dca7a;
+            box-shadow: 0 0 10px #4dca7a;
+        }
+        .status-dot.offline {
+            background: #e05555;
+            box-shadow: 0 0 10px #e05555;
+            animation: none;
+        }
+        .status-bar {
+            text-align: center;
+            font-size: 0.78rem;
+            color: var(--text2);
+            margin-bottom: 10px;
+            letter-spacing: 0.03em;
+        }
+
+        /* ── Loading spinner ── */
+        .spinner {
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            border: 3px solid var(--border);
+            border-top-color: var(--neon-blue);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 540px) {
+            .card {
+                padding: 24px 16px;
+            }
+            .main-title {
+                font-size: 2.3rem;
+            }
+            .id-display {
+                font-size: 3.8rem;
+            }
+            .btn {
+                padding: 13px 18px;
+                font-size: 0.95rem;
+            }
+        }
+        .hidden {
+            display: none !important;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .mt-8 {
+            margin-top: 8px;
+        }
+        .mt-16 {
+            margin-top: 16px;
+        }
+        .mb-8 {
+            margin-bottom: 8px;
+        }
+        .gap-8 {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── Toast Container ── -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ── App Container ── -->
+    <div class="app-container" id="appContainer">
+        <!-- Contenido dinámico renderizado por JS -->
+    </div>
+
+    <script>
+        (function() {
+            // ══════════════════════════════════════
+            // 🔥 FIREBASE INIT
+            // ══════════════════════════════════════
+            const firebaseConfig = {
+                apiKey: "AIzaSyD13N4-9MjTrmlPwGP7mves0Exje4v2ACw",
+                authDomain: "kahoot-8529e.firebaseapp.com",
+                databaseURL: "https://kahoot-8529e-default-rtdb.firebaseio.com",
+                projectId: "kahoot-8529e",
+                storageBucket: "kahoot-8529e.firebasestorage.app",
+                messagingSenderId: "313414356056",
+                appId: "1:313414356056:web:4aab4587f7df9393008e2d",
+                measurementId: "G-8T4CPC1BQ3"
+            };
+
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const db = firebase.database();
+            const storage = firebase.storage();
+
+            // ══════════════════════════════════════
+            // 🧠 ESTADO GLOBAL
+            // ══════════════════════════════════════
+            let currentUser = null;
+            let userProfile = null; // { username, userID }
+            let currentView = 'main'; // 'main' | 'auth' | 'setupUsername' | 'showID' | 'roomConnect' | 'roomActive'
+            let authMode = 'login'; // 'login' | 'register'
+            let pendingRedirect = null; // 'dashboard' | 'room'
+            let connectedRecipientID = null;
+            let messagesListener = null;
+            let recipientUID = null;
+
+            // ══════════════════════════════════════
+            // 🍞 TOAST SYSTEM
+            // ══════════════════════════════════════
+            function showToast(message, type = 'info', duration = 3500) {
+                const container = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = message;
+                container.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.classList.add('leaving');
+                    setTimeout(() => toast.remove(), 350);
+                }, duration);
+            }
+
+            // ══════════════════════════════════════
+            // 🔊 SONIDO DE NOTIFICACIÓN
+            // ══════════════════════════════════════
+            function playNotificationSound() {
+                try {
+                    const ctx = new(window.AudioContext || window.webkitAudioContext)();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, ctx.currentTime);
+                    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+                    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                    osc.start(ctx.currentTime);
+                    osc.stop(ctx.currentTime + 0.4);
+                } catch (e) {
+                    // Silencioso si no soportado
+                }
+            }
+
+            // ══════════════════════════════════════
+            // 🔍 OBTENER PERFIL DESDE FIREBASE
+            // ══════════════════════════════════════
+            async function fetchUserProfile(uid) {
+                const snap = await db.ref('users/' + uid).once('value');
+                return snap.exists() ? snap.val() : null;
+            }
+
+            // ══════════════════════════════════════
+            // 🎲 GENERAR ID ÚNICO DE 6 DÍGITOS
+            // ══════════════════════════════════════
+            async function generateUniqueID() {
+                let attempts = 0;
+                while (attempts < 50) {
+                    const candidate = Math.floor(100000 + Math.random() * 900000).toString();
+                    const snap = await db.ref('userIDMap/' + candidate).once('value');
+                    if (!snap.exists()) {
+                        return candidate;
+                    }
+                    attempts++;
+                }
+                // Fallback: usar timestamp parcial
+                const ts = Date.now().toString().slice(-6);
+                const snap = await db.ref('userIDMap/' + ts).once('value');
+                if (!snap.exists()) return ts;
+                // Último recurso
+                return Math.floor(100000 + Math.random() * 900000).toString();
+            }
+
+            // ══════════════════════════════════════
+            // 💾 GUARDAR PERFIL COMPLETO
+            // ══════════════════════════════════════
+            async function saveProfile(uid, username) {
+                const userID = await generateUniqueID();
+                const profileData = {
+                    username: username,
+                    userID: userID,
+                    email: currentUser.email || '',
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                };
+
+                // Guardar en users/{uid}
+                await db.ref('users/' + uid).set(profileData);
+                // Guardar mapeo inverso
+                await db.ref('userIDMap/' + userID).set(uid);
+
+                userProfile = profileData;
+                return profileData;
+            }
+
+            // ══════════════════════════════════════
+            // 📨 ENVIAR MENSAJE/ARCHIVO
+            // ══════════════════════════════════════
+            async function sendDataToRecipient(recipientID, messageText, file) {
+                if (!userProfile || !currentUser) {
+                    showToast('Debes iniciar sesión primero', 'error');
+                    return false;
+                }
+
+                // Buscar UID del destinatario
+                const mapSnap = await db.ref('userIDMap/' + recipientID).once('value');
+                if (!mapSnap.exists()) {
+                    showToast('El ID de usuario no existe', 'error');
+                    return false;
+                }
+                const recipUID = mapSnap.val();
+
+                const messageData = {
+                    fromUID: currentUser.uid,
+                    fromUsername: userProfile.username,
+                    fromUserID: userProfile.userID,
+                    message: messageText || null,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    fileUrl: null,
+                    fileName: null,
+                    fileType: null,
+                };
+
+                // Si hay archivo, subirlo a Storage
+                if (file) {
+                    const fileRef = storage.ref(
+                        'uploads/' + recipientID + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+                    );
+                    await fileRef.put(file);
+                    const downloadURL = await fileRef.getDownloadURL();
+                    messageData.fileUrl = downloadURL;
+                    messageData.fileName = file.name;
+                    messageData.fileType = file.type.startsWith('image/') ? 'image' : 'file';
+                }
+
+                // Guardar mensaje en messages/{recipientID}/{pushKey}
+                const pushRef = db.ref('messages/' + recipientID).push();
+                await pushRef.set(messageData);
+
+                return true;
+            }
+
+            // ══════════════════════════════════════
+            // 👂 ESCUCHAR MENSAJES ENTRANTES
+            // ══════════════════════════════════════
+            function listenForMessages(myUserID) {
+                // Limpiar listener anterior
+                if (messagesListener) {
+                    db.ref('messages/' + myUserID).off('child_added', messagesListener);
+                }
+
+                messagesListener = (snap) => {
+                    const msg = snap.val();
+                    if (msg && msg.fromUID !== currentUser?.uid) {
+                        // Es un mensaje nuevo de otro usuario
+                        playNotificationSound();
+                        showToast(`📥 Nuevo mensaje de ${msg.fromUsername || 'alguien'}`, 'info', 4000);
+                        renderReceivedMessage(snap.key, msg);
+                    }
+                };
+
+                db.ref('messages/' + myUserID).on('child_added', messagesListener);
+            }
+
+            function stopListening() {
+                if (messagesListener && userProfile) {
+                    db.ref('messages/' + userProfile.userID).off('child_added', messagesListener);
+                    messagesListener = null;
+                }
+            }
+
+            // ══════════════════════════════════════
+            // 🖼 RENDERIZAR MENSAJE RECIBIDO
+            // ══════════════════════════════════════
+            function renderReceivedMessage(msgKey, msg) {
+                const container = document.getElementById('receivedMessages');
+                if (!container) return;
+
+                const div = document.createElement('div');
+                div.className = 'received-item';
+                div.id = 'msg-' + msgKey;
+
+                let contentHTML = `<div class="sender">📨 De: ${escapeHTML(msg.fromUsername || 'Desconocido')} (ID: ${escapeHTML(msg.fromUserID || 'N/A')})</div>`;
+
+                if (msg.message) {
+                    contentHTML += `<div class="msg-text">${escapeHTML(msg.message)}</div>`;
+                }
+                if (msg.fileUrl) {
+                    if (msg.fileType === 'image') {
+                        contentHTML +=
+                            `<img src="${escapeHTML(msg.fileUrl)}" alt="Imagen recibida" loading="lazy" onerror="this.style.display='none'">`;
+                    }
+                    contentHTML +=
+                        `<a href="${escapeHTML(msg.fileUrl)}" target="_blank" rel="noopener" class="download-link">📎 Descargar: ${escapeHTML(msg.fileName || 'archivo')}</a>`;
+                }
+                if (msg.timestamp) {
+                    const date = new Date(msg.timestamp);
+                    contentHTML +=
+                        `<div class="time">🕐 ${date.toLocaleDateString()} ${date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>`;
+                }
+
+                div.innerHTML = contentHTML;
+                container.prepend(div);
+
+                // Scroll suave
+                div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            function escapeHTML(str) {
+                if (!str) return '';
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            // ══════════════════════════════════════
+            // 🎨 RENDERIZAR VISTAS
+            // ══════════════════════════════════════
+            const appContainer = document.getElementById('appContainer');
+
+            function renderMainView() {
+                currentView = 'main';
+                pendingRedirect = null;
+                appContainer.innerHTML = `
+                <div class="card">
+                    <h1 class="main-title">Abraham</h1>
+                    <p class="subtitle">Sistema de envío directo · Dashboard & Room</p>
+                    <button class="btn btn-primary" id="btnDashboard">📊 Dashboard</button>
+                    <button class="btn btn-accent" id="btnRoom">💬 Room</button>
+                    <div class="status-bar mt-16" id="statusBar">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="statusText">Verificando conexión...</span>
+                    </div>
+                </div>
+            `;
+
+                document.getElementById('btnDashboard').addEventListener('click', () => {
+                    pendingRedirect = 'dashboard';
+                    checkAuthAndProceed();
+                });
+                document.getElementById('btnRoom').addEventListener('click', () => {
+                    pendingRedirect = 'room';
+                    checkAuthAndProceed();
+                });
+
+                updateConnectionStatus();
+            }
+
+            function updateConnectionStatus() {
+                const dot = document.getElementById('statusDot');
+                const text = document.getElementById('statusText');
+                if (!dot || !text) return;
+                const connected = navigator.onLine;
+                dot.className = 'status-dot ' + (connected ? 'online' : 'offline');
+                text.textContent = connected ? 'Conectado' : 'Sin conexión';
+            }
+
+            function checkAuthAndProceed() {
+                if (currentUser) {
+                    // Ya autenticado
+                    proceedAfterAuth();
+                } else {
+                    // Mostrar vista de auth
+                    renderAuthView();
+                }
+            }
+
+            function proceedAfterAuth() {
+                if (!currentUser) {
+                    renderAuthView();
+                    return;
+                }
+                // Verificar si tiene perfil
+                fetchUserProfile(currentUser.uid).then(profile => {
+                    userProfile = profile;
+                    if (!profile || !profile.username || !profile.userID) {
+                        // Necesita crear nombre de usuario
+                        renderSetupUsernameView();
+                    } else {
+                        // Tiene perfil completo
+                        if (pendingRedirect === 'dashboard') {
+                            renderShowIDView();
+                        } else if (pendingRedirect === 'room') {
+                            renderRoomConnectView();
+                        } else {
+                            renderMainView();
+                        }
+                    }
+                }).catch(err => {
+                    console.error('Error fetching profile:', err);
+                    showToast('Error al cargar perfil', 'error');
+                    renderAuthView();
+                });
+            }
+
+            function renderAuthView() {
+                currentView = 'auth';
+                appContainer.innerHTML = `
+                <div class="card">
+                    <h1 class="main-title" style="font-size:2rem;">Abraham</h1>
+                    <p class="subtitle">${authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}</p>
+                    <div class="input-group">
+                        <label>Correo electrónico</label>
+                        <input type="email" class="input-field" id="authEmail" placeholder="tucorreo@ejemplo.com">
+                    </div>
+                    <div class="input-group">
+                        <label>Contraseña</label>
+                        <input type="password" class="input-field" id="authPassword" placeholder="••••••••">
+                    </div>
+                    <button class="btn btn-primary" id="btnAuthSubmit">
+                        ${authMode === 'login' ? '🔐 Iniciar Sesión' : '✨ Crear Cuenta'}
+                    </button>
+                    <button class="btn btn-secondary" id="btnToggleAuth">
+                        ${authMode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
+                    </button>
+                    <button class="btn btn-secondary" id="btnBackToMain">← Volver</button>
+                    <div class="status-bar mt-8" id="authStatus"></div>
+                </div>
+            `;
+
+                document.getElementById('btnAuthSubmit').addEventListener('click', handleAuth);
+                document.getElementById('btnToggleAuth').addEventListener('click', () => {
+                    authMode = authMode === 'login' ? 'register' : 'login';
+                    renderAuthView();
+                });
+                document.getElementById('btnBackToMain').addEventListener('click', () => {
+                    pendingRedirect = null;
+                    authMode = 'login';
+                    renderMainView();
+                });
+                document.getElementById('authPassword').addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') handleAuth();
+                });
+                document.getElementById('authEmail').addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') document.getElementById('authPassword').focus();
+                });
+            }
+
+            async function handleAuth() {
+                const email = document.getElementById('authEmail').value.trim();
+                const password = document.getElementById('authPassword').value;
+                const statusEl = document.getElementById('authStatus');
+
+                if (!email || !password) {
+                    showToast('Completa todos los campos', 'error');
+                    return;
+                }
+                if (password.length < 6) {
+                    showToast('La contraseña debe tener al menos 6 caracteres', 'error');
+                    return;
+                }
+
+                const btn = document.getElementById('btnAuthSubmit');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span> Procesando...';
+                if (statusEl) statusEl.textContent = 'Conectando...';
+
+                try {
+                    if (authMode === 'register') {
+                        await auth.createUserWithEmailAndPassword(email, password);
+                        showToast('¡Cuenta creada con éxito!', 'success');
+                    } else {
+                        await auth.signInWithEmailAndPassword(email, password);
+                        showToast('¡Sesión iniciada!', 'success');
+                    }
+                    // currentUser se actualiza vía onAuthStateChanged
+                } catch (error) {
+                    let msg = 'Error desconocido';
+                    if (error.code === 'auth/email-already-in-use') msg = 'Este correo ya está registrado';
+                    if (error.code === 'auth/invalid-email') msg = 'Correo electrónico inválido';
+                    if (error.code === 'auth/weak-password') msg = 'Contraseña demasiado débil (mín. 6 caracteres)';
+                    if (error.code === 'auth/user-not-found') msg = 'Usuario no encontrado';
+                    if (error.code === 'auth/wrong-password') msg = 'Contraseña incorrecta';
+                    if (error.code === 'auth/invalid-credential') msg = 'Credenciales inválidas';
+                    showToast(msg, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = authMode === 'login' ? '🔐 Iniciar Sesión' : '✨ Crear Cuenta';
+                    if (statusEl) statusEl.textContent = '';
+                }
+            }
+
+            function renderSetupUsernameView() {
+                currentView = 'setupUsername';
+                appContainer.innerHTML = `
+                <div class="card">
+                    <h1 class="main-title" style="font-size:1.8rem;">Elige tu nombre</h1>
+                    <p class="subtitle">Así te verán otros usuarios</p>
+                    <div class="input-group">
+                        <label>Nombre de usuario</label>
+                        <input type="text" class="input-field" id="usernameInput" placeholder="Ej: Alex23" maxlength="25">
+                    </div>
+                    <button class="btn btn-accent" id="btnSaveUsername">💾 Guardar nombre</button>
+                    <button class="btn btn-secondary" id="btnLogoutSetup">Cerrar sesión</button>
+                    <div class="status-bar mt-8" id="setupStatus"></div>
+                </div>
+            `;
+
+                document.getElementById('btnSaveUsername').addEventListener('click', handleSaveUsername);
+                document.getElementById('btnLogoutSetup').addEventListener('click', handleLogout);
+                document.getElementById('usernameInput').addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') handleSaveUsername();
+                });
+                setTimeout(() => document.getElementById('usernameInput')?.focus(), 300);
+            }
+
+            async function handleSaveUsername() {
+                const username = document.getElementById('usernameInput').value.trim();
+                const statusEl = document.getElementById('setupStatus');
+
+                if (!username) {
+                    showToast('Elige un nombre de usuario', 'error');
+                    return;
+                }
+                if (username.length < 2) {
+                    showToast('El nombre debe tener al menos 2 caracteres', 'error');
+                    return;
+                }
+
+                const btn = document.getElementById('btnSaveUsername');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span> Guardando...';
+                if (statusEl) statusEl.textContent = 'Generando ID único...';
+
+                try {
+                    await saveProfile(currentUser.uid, username);
+                    showToast('¡Perfil creado! Tu ID está listo', 'success');
+                    if (pendingRedirect === 'room') {
+                        renderRoomConnectView();
+                    } else {
+                        renderShowIDView();
+                    }
+                } catch (error) {
+                    console.error('Error saving profile:', error);
+                    showToast('Error al guardar perfil', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '💾 Guardar nombre';
+                    if (statusEl) statusEl.textContent = '';
+                }
+            }
+
+            function renderShowIDView() {
+                currentView = 'showID';
+                const idToShow = userProfile ? userProfile.userID : '------';
+                appContainer.innerHTML = `
+                <div class="card">
+                    <p class="subtitle">Tu identificador único</p>
+                    <div class="id-card">
+                        <div class="id-display" id="idDisplay" title="Clic para copiar">${escapeHTML(idToShow)}</div>
+                        <div class="id-label">ID · Comparte este código</div>
+                    </div>
+                    <p class="text-center" style="color:var(--text2);font-size:0.8rem;margin-top:4px;">
+                        👤 ${escapeHTML(userProfile?.username || '')}
+                    </p>
+                    <button class="btn btn-primary mt-16" id="btnCopyID">📋 Copiar ID</button>
+                    <button class="btn btn-secondary" id="btnGoRoom">💬 Ir a Room</button>
+                    <button class="btn btn-secondary" id="btnLogoutID">Cerrar sesión</button>
+                </div>
+            `;
+
+                document.getElementById('btnCopyID').addEventListener('click', () => {
+                    navigator.clipboard.writeText(idToShow).then(() => {
+                        showToast('¡ID copiado al portapapeles!', 'success');
+                    }).catch(() => {
+                        showToast('Selecciona y copia el ID manualmente', 'info');
+                    });
+                });
+                document.getElementById('idDisplay').addEventListener('click', () => {
+                    navigator.clipboard.writeText(idToShow).then(() => {
+                        showToast('¡ID copiado!', 'success');
+                    }).catch(() => {});
+                });
+                document.getElementById('btnGoRoom').addEventListener('click', () => {
+                    pendingRedirect = 'room';
+                    renderRoomConnectView();
+                });
+                document.getElementById('btnLogoutID').addEventListener('click', handleLogout);
+            }
+
+            function renderRoomConnectView() {
+                currentView = 'roomConnect';
+                connectedRecipientID = null;
+                recipientUID = null;
+                stopListening();
+
+                appContainer.innerHTML = `
+                <div class="card">
+                    <h1 class="main-title" style="font-size:1.8rem;">Room</h1>
+                    <p class="subtitle">Conéctate con otro usuario por su ID</p>
+                    <div class="input-group">
+                        <label>ID del usuario destinatario</label>
+                        <input type="text" class="input-field" id="recipientIDInput" placeholder="Ej: 482193" maxlength="6" inputmode="numeric" pattern="[0-9]{6}">
+                    </div>
+                    <button class="btn btn-accent" id="btnConnect">🔗 Conectar</button>
+                    <button class="btn btn-secondary" id="btnBackFromRoom">← Volver al inicio</button>
+                    <div class="status-bar mt-8" id="roomStatus"></div>
+                </div>
+            `;
+
+                document.getElementById('btnConnect').addEventListener('click', handleConnect);
+                document.getElementById('btnBackFromRoom').addEventListener('click', () => {
+                    stopListening();
+                    pendingRedirect = null;
+                    connectedRecipientID = null;
+                    recipientUID = null;
+                    renderMainView();
+                });
+                document.getElementById('recipientIDInput').addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') handleConnect();
+                });
+                setTimeout(() => document.getElementById('recipientIDInput')?.focus(), 300);
+            }
+
+            async function handleConnect() {
+                const input = document.getElementById('recipientIDInput');
+                const rawID = input.value.trim();
+                const statusEl = document.getElementById('roomStatus');
+
+                if (!/^\d{6}$/.test(rawID)) {
+                    showToast('El ID debe tener exactamente 6 dígitos', 'error');
+                    return;
+                }
+                if (rawID === userProfile?.userID) {
+                    showToast('No puedes conectarte a tu propio ID', 'error');
+                    return;
+                }
+
+                const btn = document.getElementById('btnConnect');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span> Buscando...';
+                if (statusEl) statusEl.textContent = 'Buscando usuario...';
+
+                try {
+                    const mapSnap = await db.ref('userIDMap/' + rawID).once('value');
+                    if (!mapSnap.exists()) {
+                        showToast('El ID introducido no existe. Verifica e intenta de nuevo.', 'error');
+                        btn.disabled = false;
+                        btn.innerHTML = '🔗 Conectar';
+                        if (statusEl) statusEl.textContent = '';
+                        return;
+                    }
+                    recipientUID = mapSnap.val();
+                    connectedRecipientID = rawID;
+
+                    // Obtener nombre del destinatario
+                    const recipSnap = await db.ref('users/' + recipientUID).once('value');
+                    const recipName = recipSnap.exists() ? recipSnap.val().username : 'Desconocido';
+
+                    showToast(`✅ Conectado con ${recipName} (ID: ${rawID})`, 'success');
+                    renderRoomActiveView(rawID, recipName);
+                } catch (error) {
+                    console.error('Error connecting:', error);
+                    showToast('Error al conectar', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '🔗 Conectar';
+                    if (statusEl) statusEl.textContent = '';
+                }
+            }
+
+            function renderRoomActiveView(recipientID, recipientName) {
+                currentView = 'roomActive';
+
+                // Iniciar escucha de mensajes entrantes
+                if (userProfile) {
+                    listenForMessages(userProfile.userID);
+                }
+
+                appContainer.innerHTML = `
+                <div class="card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                        <div>
+                            <span style="color:var(--text2);font-size:0.8rem;">Conectado con</span>
+                            <strong style="color:var(--neon-purple);display:block;">${escapeHTML(recipientName)}</strong>
+                            <span style="font-size:0.75rem;color:var(--text2);">ID: ${escapeHTML(recipientID)}</span>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" id="btnDisconnect">🔌 Desconectar</button>
+                    </div>
+
+                    <!-- Panel de envío -->
+                    <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;border:1px solid var(--border);">
+                        <p style="font-weight:600;margin-bottom:10px;font-size:0.9rem;color:var(--neon-blue);">📤 Enviar a ${escapeHTML(recipientName)}</p>
+                        <textarea class="input-field" id="messageText" placeholder="Escribe un mensaje..."></textarea>
+                        <div class="input-group mt-8">
+                            <label style="font-size:0.8rem;">Adjuntar archivo o imagen</label>
+                            <input type="file" class="input-field" id="fileInput" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar,.mp4,.mp3,.mov,.avi,.webm" style="padding:10px;">
+                        </div>
+                        <button class="btn btn-accent" id="btnSend">📨 Enviar</button>
+                        <div class="status-bar mt-8" id="sendStatus"></div>
+                    </div>
+
+                    <!-- Mensajes recibidos -->
+                    <div class="received-section">
+                        <div class="received-title">📥 Bandeja de recepción</div>
+                        <div id="receivedMessages">
+                            <p style="color:var(--text2);font-size:0.85rem;text-align:center;">Esperando mensajes...</p>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-secondary mt-8" id="btnBackToConnect">← Cambiar destinatario</button>
+                </div>
+            `;
+
+                document.getElementById('btnSend').addEventListener('click', handleSend);
+                document.getElementById('btnDisconnect').addEventListener('click', () => {
+                    stopListening();
+                    connectedRecipientID = null;
+                    recipientUID = null;
+                    renderRoomConnectView();
+                });
+                document.getElementById('btnBackToConnect').addEventListener('click', () => {
+                    stopListening();
+                    connectedRecipientID = null;
+                    recipientUID = null;
+                    renderRoomConnectView();
+                });
+                document.getElementById('messageText').addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                    }
+                });
+
+                // Cargar mensajes previos
+                loadExistingMessages();
+            }
+
+            async function loadExistingMessages() {
+                const container = document.getElementById('receivedMessages');
+                if (!container || !userProfile) return;
+
+                try {
+                    const snap = await db.ref('messages/' + userProfile.userID).once('value');
+                    container.innerHTML = '';
+                    if (snap.exists()) {
+                        const messages = snap.val();
+                        const entries = Object.entries(messages).sort((a, b) => (a[1].timestamp || 0) - (b[1]
+                            .timestamp || 0));
+                        if (entries.length === 0) {
+                            container.innerHTML =
+                                '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">Esperando mensajes...</p>';
+                        }
+                        entries.forEach(([key, msg]) => {
+                            if (msg.fromUID !== currentUser?.uid) {
+                                renderReceivedMessage(key, msg);
+                            }
+                        });
+                        if (entries.length > 0 && container.children.length === 0) {
+                            container.innerHTML =
+                                '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">Esperando mensajes...</p>';
+                        }
+                    } else {
+                        container.innerHTML =
+                            '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">Esperando mensajes...</p>';
+                    }
+                } catch (error) {
+                    console.error('Error loading messages:', error);
+                }
+            }
+
+            async function handleSend() {
+                if (!connectedRecipientID || !userProfile) {
+                    showToast('Conéctate a un destinatario primero', 'error');
+                    return;
+                }
+
+                const messageText = document.getElementById('messageText').value.trim();
+                const fileInput = document.getElementById('fileInput');
+                const file = fileInput.files[0];
+                const statusEl = document.getElementById('sendStatus');
+                const btn = document.getElementById('btnSend');
+
+                if (!messageText && !file) {
+                    showToast('Escribe un mensaje o adjunta un archivo', 'error');
+                    return;
+                }
+
+                // Validar tamaño (máx 15MB)
+                if (file && file.size > 15 * 1024 * 1024) {
+                    showToast('El archivo es demasiado grande (máx. 15MB)', 'error');
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span> Enviando...';
+                if (statusEl) statusEl.textContent = 'Enviando...';
+
+                try {
+                    const success = await sendDataToRecipient(connectedRecipientID, messageText || null, file || null);
+                    if (success) {
+                        showToast('✅ Enviado correctamente', 'success');
+                        document.getElementById('messageText').value = '';
+                        fileInput.value = '';
+                        if (statusEl) statusEl.textContent = '✅ Enviado correctamente';
+                        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+                    }
+                } catch (error) {
+                    console.error('Error sending:', error);
+                    showToast('Error al enviar. Intenta de nuevo.', 'error');
+                    if (statusEl) statusEl.textContent = '❌ Error al enviar';
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '📨 Enviar';
+                }
+            }
+
+            function handleLogout() {
+                stopListening();
+                auth.signOut().then(() => {
+                    userProfile = null;
+                    connectedRecipientID = null;
+                    recipientUID = null;
+                    pendingRedirect = null;
+                    authMode = 'login';
+                    renderMainView();
+                    showToast('Sesión cerrada', 'info');
+                }).catch(err => {
+                    console.error('Logout error:', err);
+                    showToast('Error al cerrar sesión', 'error');
+                });
+            }
+
+            // ══════════════════════════════════════
+            // 🔄 AUTH STATE LISTENER
+            // ══════════════════════════════════════
+            auth.onAuthStateChanged(async (user) => {
+                const wasLoggedIn = !!currentUser;
+                currentUser = user;
+
+                if (user) {
+                    // Cargar perfil
+                    const profile = await fetchUserProfile(user.uid);
+                    userProfile = profile;
+
+                    if (!wasLoggedIn && currentView === 'auth') {
+                        // Acaba de autenticarse desde la vista auth
+                        proceedAfterAuth();
+                    } else if (!wasLoggedIn && currentView === 'main') {
+                        // Ya estaba en main, no hacer nada automático
+                    } else if (currentView === 'main' && pendingRedirect) {
+                        proceedAfterAuth();
+                    }
+                } else {
+                    // Se cerró sesión
+                    userProfile = null;
+                    stopListening();
+                    connectedRecipientID = null;
+                    recipientUID = null;
+                    if (currentView !== 'main' && currentView !== 'auth') {
+                        renderMainView();
+                    }
+                }
+
+                // Actualizar status dot en main
+                if (currentView === 'main') {
+                    updateConnectionStatus();
+                }
+            });
+
+            // ══════════════════════════════════════
+            // 🌐 CONNECTION LISTENERS
+            // ══════════════════════════════════════
+            window.addEventListener('online', () => {
+                updateConnectionStatus();
+                showToast('Conexión restablecida', 'success', 2000);
+            });
+            window.addEventListener('offline', () => {
+                updateConnectionStatus();
+                showToast('Sin conexión a internet', 'error', 3000);
+            });
+
+            // Firebase connection monitoring
+            const connectedRef = db.ref('.info/connected');
+            connectedRef.on('value', (snap) => {
+                const fbConnected = snap.val() === true;
+                const dot = document.getElementById('statusDot');
+                const text = document.getElementById('statusText');
+                if (dot && text && currentView === 'main') {
+                    dot.className = 'status-dot ' + (fbConnected ? 'online' : 'offline');
+                    text.textContent = fbConnected ? 'Conectado' : 'Sin conexión al servidor';
+                }
+            });
+
+            // ══════════════════════════════════════
+            // 🚀 INICIO
+            // ══════════════════════════════════════
+            renderMainView();
+
+            console.log('🚀 Abraham — Dashboard & Room inicializado');
+            console.log('📡 Firebase proyect:', firebaseConfig.projectId);
+            console.log('👤 Auth state:', auth.currentUser ? 'Logged in' : 'Not logged in');
+            console.log('💡 Haz clic en Dashboard para crear tu cuenta u obtén tu ID, o en Room para enviar/recibir.');
+        })();
+    </script>
+</body>
+</html>
