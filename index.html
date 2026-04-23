@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Abraham — Dashboard & Room</title>
+    <title>Air-drop — Dashboard & Room</title>
 
     <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
@@ -25,6 +25,7 @@
             --text2: #a0a0b8;
             --neon-blue: #4da8ff;
             --neon-purple: #9b5eff;
+            --neon-green: #4dca7a;
             --neon-glow-blue: 0 0 20px rgba(77, 168, 255, 0.5), 0 0 60px rgba(77, 168, 255, 0.2);
             --neon-glow-purple: 0 0 20px rgba(155, 94, 255, 0.5), 0 0 60px rgba(155, 94, 255, 0.2);
             --radius: 16px;
@@ -53,15 +54,13 @@
                 radial-gradient(ellipse at 50% 50%, rgba(30, 30, 50, 0.4) 0%, transparent 80%);
         }
 
-        /* ── Contenedor principal ── */
         .app-container {
             width: 100%;
-            max-width: 520px;
+            max-width: 560px;
             padding: 20px;
             position: relative;
         }
 
-        /* ── Tarjeta ── */
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -142,7 +141,6 @@
             }
         }
 
-        /* ── Header ── */
         .main-title {
             text-align: center;
             font-size: 3rem;
@@ -163,7 +161,6 @@
             letter-spacing: 0.04em;
         }
 
-        /* ── Botones ── */
         .btn {
             display: block;
             width: 100%;
@@ -209,6 +206,15 @@
             transform: translateY(-2px);
             box-shadow: var(--neon-glow-purple), 0 6px 24px rgba(155, 94, 255, 0.5);
         }
+        .btn-messages {
+            background: linear-gradient(135deg, #2d8a4e, #3cb878);
+            color: #fff;
+            box-shadow: 0 4px 18px rgba(60, 184, 120, 0.35);
+        }
+        .btn-messages:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(77, 202, 122, 0.5), 0 0 60px rgba(77, 202, 122, 0.2);
+        }
         .btn:active {
             transform: scale(0.97);
             transition: 0.1s;
@@ -226,7 +232,6 @@
             margin: 4px;
         }
 
-        /* ── Inputs ── */
         .input-group {
             margin-bottom: 16px;
         }
@@ -262,7 +267,6 @@
             min-height: 90px;
         }
 
-        /* ── ID Display ── */
         .id-display {
             text-align: center;
             font-size: 5.5rem;
@@ -295,7 +299,6 @@
             margin: 16px 0;
         }
 
-        /* ── Toast / Notificaciones ── */
         .toast-container {
             position: fixed;
             top: 24px;
@@ -334,7 +337,6 @@
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 18px rgba(224, 85, 85, 0.3);
         }
 
-        /* ── Received Items ── */
         .received-section {
             margin-top: 20px;
             border-top: 1px solid var(--border);
@@ -402,8 +404,35 @@
             background: rgba(77, 168, 255, 0.18);
             box-shadow: 0 0 12px rgba(77, 168, 255, 0.2);
         }
+        .eta-badge {
+            display: inline-block;
+            background: rgba(77, 202, 122, 0.15);
+            color: var(--neon-green);
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 12px;
+            margin-left: 8px;
+            letter-spacing: 0.03em;
+            vertical-align: middle;
+        }
 
-        /* ── Connection Status ── */
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 6px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 6px;
+        }
+
         .status-dot {
             display: inline-block;
             width: 9px;
@@ -429,7 +458,6 @@
             letter-spacing: 0.03em;
         }
 
-        /* ── Loading spinner ── */
         .spinner {
             display: inline-block;
             width: 22px;
@@ -447,7 +475,6 @@
             }
         }
 
-        /* ── Responsive ── */
         @media (max-width: 540px) {
             .card {
                 padding: 24px 16px;
@@ -487,13 +514,8 @@
 </head>
 <body>
 
-    <!-- ── Toast Container ── -->
     <div class="toast-container" id="toastContainer"></div>
-
-    <!-- ── App Container ── -->
-    <div class="app-container" id="appContainer">
-        <!-- Contenido dinámico renderizado por JS -->
-    </div>
+    <div class="app-container" id="appContainer"></div>
 
     <script>
         (function() {
@@ -520,13 +542,15 @@
             // 🧠 ESTADO GLOBAL
             // ══════════════════════════════════════
             let currentUser = null;
-            let userProfile = null; // { username, userID }
-            let currentView = 'main'; // 'main' | 'auth' | 'setupUsername' | 'showID' | 'roomConnect' | 'roomActive'
-            let authMode = 'login'; // 'login' | 'register'
-            let pendingRedirect = null; // 'dashboard' | 'room'
+            let userProfile = null;
+            let currentView = 'main';
+            let authMode = 'login';
+            let pendingRedirect = null;
             let connectedRecipientID = null;
             let messagesListener = null;
             let recipientUID = null;
+            const ASSUMED_UPLOAD_SPEED_BPS = 1.2 * 1024 * 1024; // 1.2 MB/s subida estimada
+            const ASSUMED_DOWNLOAD_SPEED_BPS = 2.5 * 1024 * 1024; // 2.5 MB/s descarga estimada
 
             // ══════════════════════════════════════
             // 🍞 TOAST SYSTEM
@@ -537,7 +561,6 @@
                 toast.className = `toast ${type}`;
                 toast.textContent = message;
                 container.appendChild(toast);
-
                 setTimeout(() => {
                     toast.classList.add('leaving');
                     setTimeout(() => toast.remove(), 350);
@@ -562,13 +585,30 @@
                     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
                     osc.start(ctx.currentTime);
                     osc.stop(ctx.currentTime + 0.4);
-                } catch (e) {
-                    // Silencioso si no soportado
-                }
+                } catch (e) {}
             }
 
             // ══════════════════════════════════════
-            // 🔍 OBTENER PERFIL DESDE FIREBASE
+            // ⏱ TIEMPO ESTIMADO
+            // ══════════════════════════════════════
+            function formatETA(seconds) {
+                if (seconds < 1) return 'menos de 1 s';
+                if (seconds < 60) return `${Math.round(seconds)} s`;
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.round(seconds % 60);
+                return secs > 0 ? `${mins} min ${secs} s` : `${mins} min`;
+            }
+
+            function estimateUploadTime(fileSizeBytes) {
+                return fileSizeBytes / ASSUMED_UPLOAD_SPEED_BPS;
+            }
+
+            function estimateDownloadTime(fileSizeBytes) {
+                return fileSizeBytes / ASSUMED_DOWNLOAD_SPEED_BPS;
+            }
+
+            // ══════════════════════════════════════
+            // 🔍 OBTENER PERFIL
             // ══════════════════════════════════════
             async function fetchUserProfile(uid) {
                 const snap = await db.ref('users/' + uid).once('value');
@@ -583,21 +623,17 @@
                 while (attempts < 50) {
                     const candidate = Math.floor(100000 + Math.random() * 900000).toString();
                     const snap = await db.ref('userIDMap/' + candidate).once('value');
-                    if (!snap.exists()) {
-                        return candidate;
-                    }
+                    if (!snap.exists()) return candidate;
                     attempts++;
                 }
-                // Fallback: usar timestamp parcial
                 const ts = Date.now().toString().slice(-6);
                 const snap = await db.ref('userIDMap/' + ts).once('value');
                 if (!snap.exists()) return ts;
-                // Último recurso
                 return Math.floor(100000 + Math.random() * 900000).toString();
             }
 
             // ══════════════════════════════════════
-            // 💾 GUARDAR PERFIL COMPLETO
+            // 💾 GUARDAR PERFIL
             // ══════════════════════════════════════
             async function saveProfile(uid, username) {
                 const userID = await generateUniqueID();
@@ -607,12 +643,8 @@
                     email: currentUser.email || '',
                     createdAt: firebase.database.ServerValue.TIMESTAMP
                 };
-
-                // Guardar en users/{uid}
                 await db.ref('users/' + uid).set(profileData);
-                // Guardar mapeo inverso
                 await db.ref('userIDMap/' + userID).set(uid);
-
                 userProfile = profileData;
                 return profileData;
             }
@@ -620,20 +652,17 @@
             // ══════════════════════════════════════
             // 📨 ENVIAR MENSAJE/ARCHIVO
             // ══════════════════════════════════════
-            async function sendDataToRecipient(recipientID, messageText, file) {
+            async function sendDataToRecipient(recipientID, messageText, file, onProgress) {
                 if (!userProfile || !currentUser) {
                     showToast('Debes iniciar sesión primero', 'error');
                     return false;
                 }
-
-                // Buscar UID del destinatario
                 const mapSnap = await db.ref('userIDMap/' + recipientID).once('value');
                 if (!mapSnap.exists()) {
                     showToast('El ID de usuario no existe', 'error');
                     return false;
                 }
                 const recipUID = mapSnap.val();
-
                 const messageData = {
                     fromUID: currentUser.uid,
                     fromUsername: userProfile.username,
@@ -643,24 +672,37 @@
                     fileUrl: null,
                     fileName: null,
                     fileType: null,
+                    fileSize: null,
                 };
 
-                // Si hay archivo, subirlo a Storage
                 if (file) {
-                    const fileRef = storage.ref(
-                        'uploads/' + recipientID + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+                    const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                    const fileRef = storage.ref('uploads/' + recipientID + '/' + Date.now() + '_' + sanitizedName);
+                    const uploadTask = fileRef.put(file);
+
+                    // Progreso de subida
+                    uploadTask.on('state_changed',
+                        (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            if (onProgress) onProgress(progress, snapshot.bytesTransferred, snapshot
+                                .totalBytes);
+                        },
+                        (error) => {
+                            console.error('Upload error:', error);
+                            showToast('Error al subir el archivo', 'error');
+                        }
                     );
-                    await fileRef.put(file);
+
+                    await uploadTask;
                     const downloadURL = await fileRef.getDownloadURL();
                     messageData.fileUrl = downloadURL;
                     messageData.fileName = file.name;
+                    messageData.fileSize = file.size;
                     messageData.fileType = file.type.startsWith('image/') ? 'image' : 'file';
                 }
 
-                // Guardar mensaje en messages/{recipientID}/{pushKey}
                 const pushRef = db.ref('messages/' + recipientID).push();
                 await pushRef.set(messageData);
-
                 return true;
             }
 
@@ -668,21 +710,17 @@
             // 👂 ESCUCHAR MENSAJES ENTRANTES
             // ══════════════════════════════════════
             function listenForMessages(myUserID) {
-                // Limpiar listener anterior
                 if (messagesListener) {
                     db.ref('messages/' + myUserID).off('child_added', messagesListener);
                 }
-
                 messagesListener = (snap) => {
                     const msg = snap.val();
                     if (msg && msg.fromUID !== currentUser?.uid) {
-                        // Es un mensaje nuevo de otro usuario
                         playNotificationSound();
                         showToast(`📥 Nuevo mensaje de ${msg.fromUsername || 'alguien'}`, 'info', 4000);
                         renderReceivedMessage(snap.key, msg);
                     }
                 };
-
                 db.ref('messages/' + myUserID).on('child_added', messagesListener);
             }
 
@@ -696,16 +734,15 @@
             // ══════════════════════════════════════
             // 🖼 RENDERIZAR MENSAJE RECIBIDO
             // ══════════════════════════════════════
-            function renderReceivedMessage(msgKey, msg) {
+            function renderReceivedMessage(msgKey, msg, prepend = true) {
                 const container = document.getElementById('receivedMessages');
                 if (!container) return;
-
                 const div = document.createElement('div');
                 div.className = 'received-item';
                 div.id = 'msg-' + msgKey;
 
-                let contentHTML = `<div class="sender">📨 De: ${escapeHTML(msg.fromUsername || 'Desconocido')} (ID: ${escapeHTML(msg.fromUserID || 'N/A')})</div>`;
-
+                let contentHTML =
+                    `<div class="sender">📨 De: ${escapeHTML(msg.fromUsername || 'Desconocido')} (ID: ${escapeHTML(msg.fromUserID || 'N/A')})</div>`;
                 if (msg.message) {
                     contentHTML += `<div class="msg-text">${escapeHTML(msg.message)}</div>`;
                 }
@@ -714,19 +751,30 @@
                         contentHTML +=
                             `<img src="${escapeHTML(msg.fileUrl)}" alt="Imagen recibida" loading="lazy" onerror="this.style.display='none'">`;
                     }
+                    const fileSize = msg.fileSize || 0;
+                    const downloadSeconds = estimateDownloadTime(fileSize);
+                    const etaText = fileSize > 0 ? formatETA(downloadSeconds) : 'desconocido';
                     contentHTML +=
                         `<a href="${escapeHTML(msg.fileUrl)}" target="_blank" rel="noopener" class="download-link">📎 Descargar: ${escapeHTML(msg.fileName || 'archivo')}</a>`;
+                    contentHTML +=
+                        `<span class="eta-badge">⏳ Descarga est. ~${etaText}</span>`;
+                    if (fileSize > 0) {
+                        const sizeMB = (fileSize / (1024 * 1024)).toFixed(2);
+                        contentHTML +=
+                            `<div style="font-size:0.7rem;color:var(--text2);margin-top:4px;">Tamaño: ${sizeMB} MB</div>`;
+                    }
                 }
                 if (msg.timestamp) {
                     const date = new Date(msg.timestamp);
                     contentHTML +=
                         `<div class="time">🕐 ${date.toLocaleDateString()} ${date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>`;
                 }
-
                 div.innerHTML = contentHTML;
-                container.prepend(div);
-
-                // Scroll suave
+                if (prepend) {
+                    container.prepend(div);
+                } else {
+                    container.appendChild(div);
+                }
                 div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
 
@@ -747,17 +795,17 @@
                 pendingRedirect = null;
                 appContainer.innerHTML = `
                 <div class="card">
-                    <h1 class="main-title">Abraham</h1>
-                    <p class="subtitle">Sistema de envío directo · Dashboard & Room</p>
+                    <h1 class="main-title">Air-drop</h1>
+                    <p class="subtitle">Comparte archivos al instante · Dashboard, Room & Mensajes</p>
                     <button class="btn btn-primary" id="btnDashboard">📊 Dashboard</button>
                     <button class="btn btn-accent" id="btnRoom">💬 Room</button>
+                    <button class="btn btn-messages" id="btnMessages">📥 Mensajes</button>
                     <div class="status-bar mt-16" id="statusBar">
                         <span class="status-dot" id="statusDot"></span>
                         <span id="statusText">Verificando conexión...</span>
                     </div>
                 </div>
             `;
-
                 document.getElementById('btnDashboard').addEventListener('click', () => {
                     pendingRedirect = 'dashboard';
                     checkAuthAndProceed();
@@ -766,7 +814,10 @@
                     pendingRedirect = 'room';
                     checkAuthAndProceed();
                 });
-
+                document.getElementById('btnMessages').addEventListener('click', () => {
+                    pendingRedirect = 'messages';
+                    checkAuthAndProceed();
+                });
                 updateConnectionStatus();
             }
 
@@ -781,10 +832,8 @@
 
             function checkAuthAndProceed() {
                 if (currentUser) {
-                    // Ya autenticado
                     proceedAfterAuth();
                 } else {
-                    // Mostrar vista de auth
                     renderAuthView();
                 }
             }
@@ -794,18 +843,17 @@
                     renderAuthView();
                     return;
                 }
-                // Verificar si tiene perfil
                 fetchUserProfile(currentUser.uid).then(profile => {
                     userProfile = profile;
                     if (!profile || !profile.username || !profile.userID) {
-                        // Necesita crear nombre de usuario
                         renderSetupUsernameView();
                     } else {
-                        // Tiene perfil completo
                         if (pendingRedirect === 'dashboard') {
                             renderShowIDView();
                         } else if (pendingRedirect === 'room') {
                             renderRoomConnectView();
+                        } else if (pendingRedirect === 'messages') {
+                            renderMessagesView();
                         } else {
                             renderMainView();
                         }
@@ -821,7 +869,7 @@
                 currentView = 'auth';
                 appContainer.innerHTML = `
                 <div class="card">
-                    <h1 class="main-title" style="font-size:2rem;">Abraham</h1>
+                    <h1 class="main-title" style="font-size:2rem;">Air-drop</h1>
                     <p class="subtitle">${authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}</p>
                     <div class="input-group">
                         <label>Correo electrónico</label>
@@ -841,7 +889,6 @@
                     <div class="status-bar mt-8" id="authStatus"></div>
                 </div>
             `;
-
                 document.getElementById('btnAuthSubmit').addEventListener('click', handleAuth);
                 document.getElementById('btnToggleAuth').addEventListener('click', () => {
                     authMode = authMode === 'login' ? 'register' : 'login';
@@ -864,7 +911,6 @@
                 const email = document.getElementById('authEmail').value.trim();
                 const password = document.getElementById('authPassword').value;
                 const statusEl = document.getElementById('authStatus');
-
                 if (!email || !password) {
                     showToast('Completa todos los campos', 'error');
                     return;
@@ -873,12 +919,10 @@
                     showToast('La contraseña debe tener al menos 6 caracteres', 'error');
                     return;
                 }
-
                 const btn = document.getElementById('btnAuthSubmit');
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner"></span> Procesando...';
                 if (statusEl) statusEl.textContent = 'Conectando...';
-
                 try {
                     if (authMode === 'register') {
                         await auth.createUserWithEmailAndPassword(email, password);
@@ -887,7 +931,6 @@
                         await auth.signInWithEmailAndPassword(email, password);
                         showToast('¡Sesión iniciada!', 'success');
                     }
-                    // currentUser se actualiza vía onAuthStateChanged
                 } catch (error) {
                     let msg = 'Error desconocido';
                     if (error.code === 'auth/email-already-in-use') msg = 'Este correo ya está registrado';
@@ -918,7 +961,6 @@
                     <div class="status-bar mt-8" id="setupStatus"></div>
                 </div>
             `;
-
                 document.getElementById('btnSaveUsername').addEventListener('click', handleSaveUsername);
                 document.getElementById('btnLogoutSetup').addEventListener('click', handleLogout);
                 document.getElementById('usernameInput').addEventListener('keydown', (e) => {
@@ -930,7 +972,6 @@
             async function handleSaveUsername() {
                 const username = document.getElementById('usernameInput').value.trim();
                 const statusEl = document.getElementById('setupStatus');
-
                 if (!username) {
                     showToast('Elige un nombre de usuario', 'error');
                     return;
@@ -939,17 +980,17 @@
                     showToast('El nombre debe tener al menos 2 caracteres', 'error');
                     return;
                 }
-
                 const btn = document.getElementById('btnSaveUsername');
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner"></span> Guardando...';
                 if (statusEl) statusEl.textContent = 'Generando ID único...';
-
                 try {
                     await saveProfile(currentUser.uid, username);
                     showToast('¡Perfil creado! Tu ID está listo', 'success');
                     if (pendingRedirect === 'room') {
                         renderRoomConnectView();
+                    } else if (pendingRedirect === 'messages') {
+                        renderMessagesView();
                     } else {
                         renderShowIDView();
                     }
@@ -976,11 +1017,11 @@
                         👤 ${escapeHTML(userProfile?.username || '')}
                     </p>
                     <button class="btn btn-primary mt-16" id="btnCopyID">📋 Copiar ID</button>
-                    <button class="btn btn-secondary" id="btnGoRoom">💬 Ir a Room</button>
+                    <button class="btn btn-accent" id="btnGoRoom">💬 Ir a Room</button>
+                    <button class="btn btn-messages" id="btnGoMessages">📥 Ver Mensajes</button>
                     <button class="btn btn-secondary" id="btnLogoutID">Cerrar sesión</button>
                 </div>
             `;
-
                 document.getElementById('btnCopyID').addEventListener('click', () => {
                     navigator.clipboard.writeText(idToShow).then(() => {
                         showToast('¡ID copiado al portapapeles!', 'success');
@@ -997,6 +1038,10 @@
                     pendingRedirect = 'room';
                     renderRoomConnectView();
                 });
+                document.getElementById('btnGoMessages').addEventListener('click', () => {
+                    pendingRedirect = 'messages';
+                    renderMessagesView();
+                });
                 document.getElementById('btnLogoutID').addEventListener('click', handleLogout);
             }
 
@@ -1005,7 +1050,6 @@
                 connectedRecipientID = null;
                 recipientUID = null;
                 stopListening();
-
                 appContainer.innerHTML = `
                 <div class="card">
                     <h1 class="main-title" style="font-size:1.8rem;">Room</h1>
@@ -1019,7 +1063,6 @@
                     <div class="status-bar mt-8" id="roomStatus"></div>
                 </div>
             `;
-
                 document.getElementById('btnConnect').addEventListener('click', handleConnect);
                 document.getElementById('btnBackFromRoom').addEventListener('click', () => {
                     stopListening();
@@ -1038,7 +1081,6 @@
                 const input = document.getElementById('recipientIDInput');
                 const rawID = input.value.trim();
                 const statusEl = document.getElementById('roomStatus');
-
                 if (!/^\d{6}$/.test(rawID)) {
                     showToast('El ID debe tener exactamente 6 dígitos', 'error');
                     return;
@@ -1047,12 +1089,10 @@
                     showToast('No puedes conectarte a tu propio ID', 'error');
                     return;
                 }
-
                 const btn = document.getElementById('btnConnect');
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner"></span> Buscando...';
                 if (statusEl) statusEl.textContent = 'Buscando usuario...';
-
                 try {
                     const mapSnap = await db.ref('userIDMap/' + rawID).once('value');
                     if (!mapSnap.exists()) {
@@ -1064,11 +1104,8 @@
                     }
                     recipientUID = mapSnap.val();
                     connectedRecipientID = rawID;
-
-                    // Obtener nombre del destinatario
                     const recipSnap = await db.ref('users/' + recipientUID).once('value');
                     const recipName = recipSnap.exists() ? recipSnap.val().username : 'Desconocido';
-
                     showToast(`✅ Conectado con ${recipName} (ID: ${rawID})`, 'success');
                     renderRoomActiveView(rawID, recipName);
                 } catch (error) {
@@ -1082,12 +1119,9 @@
 
             function renderRoomActiveView(recipientID, recipientName) {
                 currentView = 'roomActive';
-
-                // Iniciar escucha de mensajes entrantes
                 if (userProfile) {
                     listenForMessages(userProfile.userID);
                 }
-
                 appContainer.innerHTML = `
                 <div class="card">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
@@ -1098,8 +1132,6 @@
                         </div>
                         <button class="btn btn-secondary btn-sm" id="btnDisconnect">🔌 Desconectar</button>
                     </div>
-
-                    <!-- Panel de envío -->
                     <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;border:1px solid var(--border);">
                         <p style="font-weight:600;margin-bottom:10px;font-size:0.9rem;color:var(--neon-blue);">📤 Enviar a ${escapeHTML(recipientName)}</p>
                         <textarea class="input-field" id="messageText" placeholder="Escribe un mensaje..."></textarea>
@@ -1107,22 +1139,21 @@
                             <label style="font-size:0.8rem;">Adjuntar archivo o imagen</label>
                             <input type="file" class="input-field" id="fileInput" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar,.mp4,.mp3,.mov,.avi,.webm" style="padding:10px;">
                         </div>
-                        <button class="btn btn-accent" id="btnSend">📨 Enviar</button>
+                        <div class="progress-bar-container hidden" id="progressContainer">
+                            <div class="progress-bar-fill" id="progressFill"></div>
+                        </div>
                         <div class="status-bar mt-8" id="sendStatus"></div>
+                        <button class="btn btn-accent mt-8" id="btnSend">📨 Enviar</button>
                     </div>
-
-                    <!-- Mensajes recibidos -->
                     <div class="received-section">
                         <div class="received-title">📥 Bandeja de recepción</div>
                         <div id="receivedMessages">
                             <p style="color:var(--text2);font-size:0.85rem;text-align:center;">Esperando mensajes...</p>
                         </div>
                     </div>
-
                     <button class="btn btn-secondary mt-8" id="btnBackToConnect">← Cambiar destinatario</button>
                 </div>
             `;
-
                 document.getElementById('btnSend').addEventListener('click', handleSend);
                 document.getElementById('btnDisconnect').addEventListener('click', () => {
                     stopListening();
@@ -1142,15 +1173,12 @@
                         handleSend();
                     }
                 });
-
-                // Cargar mensajes previos
                 loadExistingMessages();
             }
 
             async function loadExistingMessages() {
                 const container = document.getElementById('receivedMessages');
                 if (!container || !userProfile) return;
-
                 try {
                     const snap = await db.ref('messages/' + userProfile.userID).once('value');
                     container.innerHTML = '';
@@ -1164,7 +1192,7 @@
                         }
                         entries.forEach(([key, msg]) => {
                             if (msg.fromUID !== currentUser?.uid) {
-                                renderReceivedMessage(key, msg);
+                                renderReceivedMessage(key, msg, false);
                             }
                         });
                         if (entries.length > 0 && container.children.length === 0) {
@@ -1185,44 +1213,120 @@
                     showToast('Conéctate a un destinatario primero', 'error');
                     return;
                 }
-
                 const messageText = document.getElementById('messageText').value.trim();
                 const fileInput = document.getElementById('fileInput');
                 const file = fileInput.files[0];
                 const statusEl = document.getElementById('sendStatus');
                 const btn = document.getElementById('btnSend');
+                const progressContainer = document.getElementById('progressContainer');
+                const progressFill = document.getElementById('progressFill');
 
                 if (!messageText && !file) {
                     showToast('Escribe un mensaje o adjunta un archivo', 'error');
                     return;
                 }
-
-                // Validar tamaño (máx 15MB)
                 if (file && file.size > 15 * 1024 * 1024) {
                     showToast('El archivo es demasiado grande (máx. 15MB)', 'error');
                     return;
                 }
 
+                // Mostrar ETA de subida
+                if (file) {
+                    const etaSeconds = estimateUploadTime(file.size);
+                    const etaFormatted = formatETA(etaSeconds);
+                    if (statusEl) statusEl.textContent = `⏳ Subida estimada: ~${etaFormatted} (${(file.size/(1024*1024)).toFixed(2)} MB)`;
+                    progressContainer.classList.remove('hidden');
+                    progressFill.style.width = '0%';
+                }
+
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner"></span> Enviando...';
-                if (statusEl) statusEl.textContent = 'Enviando...';
 
                 try {
-                    const success = await sendDataToRecipient(connectedRecipientID, messageText || null, file || null);
+                    const success = await sendDataToRecipient(connectedRecipientID, messageText || null, file || null,
+                        (progress, bytesTransferred, totalBytes) => {
+                            if (progressFill) progressFill.style.width = progress + '%';
+                            const remainingBytes = totalBytes - bytesTransferred;
+                            const remainingSeconds = estimateUploadTime(remainingBytes);
+                            if (statusEl) statusEl.textContent =
+                                `⏳ Subiendo... ${Math.round(progress)}% (restante ~${formatETA(remainingSeconds)})`;
+                        });
                     if (success) {
                         showToast('✅ Enviado correctamente', 'success');
                         document.getElementById('messageText').value = '';
                         fileInput.value = '';
                         if (statusEl) statusEl.textContent = '✅ Enviado correctamente';
+                        progressContainer.classList.add('hidden');
                         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
                     }
                 } catch (error) {
                     console.error('Error sending:', error);
                     showToast('Error al enviar. Intenta de nuevo.', 'error');
                     if (statusEl) statusEl.textContent = '❌ Error al enviar';
+                    progressContainer.classList.add('hidden');
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = '📨 Enviar';
+                }
+            }
+
+            // ══════════════════════════════════════
+            // 📥 NUEVA VISTA DE MENSAJES (HISTORIAL)
+            // ══════════════════════════════════════
+            function renderMessagesView() {
+                currentView = 'messagesView';
+                stopListening();
+                appContainer.innerHTML = `
+                <div class="card">
+                    <h1 class="main-title" style="font-size:1.8rem;">📥 Mensajes</h1>
+                    <p class="subtitle">Historial de mensajes y archivos recibidos</p>
+                    <div class="received-section">
+                        <div class="received-title">Todos los mensajes recibidos</div>
+                        <div id="receivedMessages">
+                            <p style="color:var(--text2);font-size:0.85rem;text-align:center;">Cargando historial...</p>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary mt-16" id="btnBackFromMessages">← Volver al inicio</button>
+                    <div class="status-bar mt-8" id="messagesStatus"></div>
+                </div>
+            `;
+                document.getElementById('btnBackFromMessages').addEventListener('click', () => {
+                    pendingRedirect = null;
+                    renderMainView();
+                });
+                loadAllMessages();
+            }
+
+            async function loadAllMessages() {
+                const container = document.getElementById('receivedMessages');
+                const statusEl = document.getElementById('messagesStatus');
+                if (!container || !userProfile) return;
+                try {
+                    if (statusEl) statusEl.textContent = 'Cargando mensajes...';
+                    const snap = await db.ref('messages/' + userProfile.userID).once('value');
+                    container.innerHTML = '';
+                    if (snap.exists()) {
+                        const messages = snap.val();
+                        const entries = Object.entries(messages).sort((a, b) => (b[1].timestamp || 0) - (a[1]
+                            .timestamp || 0));
+                        if (entries.length === 0) {
+                            container.innerHTML =
+                                '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">No tienes mensajes todavía.</p>';
+                        }
+                        entries.forEach(([key, msg]) => {
+                            renderReceivedMessage(key, msg, false);
+                        });
+                    } else {
+                        container.innerHTML =
+                            '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">No tienes mensajes todavía.</p>';
+                    }
+                    if (statusEl) statusEl.textContent = entries ? `${entries.length} mensaje(s) encontrado(s)` :
+                        '0 mensajes';
+                } catch (error) {
+                    console.error('Error loading all messages:', error);
+                    container.innerHTML =
+                        '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">Error al cargar mensajes.</p>';
+                    if (statusEl) statusEl.textContent = 'Error';
                 }
             }
 
@@ -1248,22 +1352,16 @@
             auth.onAuthStateChanged(async (user) => {
                 const wasLoggedIn = !!currentUser;
                 currentUser = user;
-
                 if (user) {
-                    // Cargar perfil
                     const profile = await fetchUserProfile(user.uid);
                     userProfile = profile;
-
                     if (!wasLoggedIn && currentView === 'auth') {
-                        // Acaba de autenticarse desde la vista auth
                         proceedAfterAuth();
-                    } else if (!wasLoggedIn && currentView === 'main') {
-                        // Ya estaba en main, no hacer nada automático
-                    } else if (currentView === 'main' && pendingRedirect) {
+                    } else if (!wasLoggedIn && currentView === 'main') {} else if (currentView === 'main' &&
+                        pendingRedirect) {
                         proceedAfterAuth();
                     }
                 } else {
-                    // Se cerró sesión
                     userProfile = null;
                     stopListening();
                     connectedRecipientID = null;
@@ -1272,8 +1370,6 @@
                         renderMainView();
                     }
                 }
-
-                // Actualizar status dot en main
                 if (currentView === 'main') {
                     updateConnectionStatus();
                 }
@@ -1291,7 +1387,6 @@
                 showToast('Sin conexión a internet', 'error', 3000);
             });
 
-            // Firebase connection monitoring
             const connectedRef = db.ref('.info/connected');
             connectedRef.on('value', (snap) => {
                 const fbConnected = snap.val() === true;
@@ -1308,10 +1403,10 @@
             // ══════════════════════════════════════
             renderMainView();
 
-            console.log('🚀 Abraham — Dashboard & Room inicializado');
+            console.log('🚀 Air-drop — Dashboard, Room & Mensajes inicializado');
             console.log('📡 Firebase proyect:', firebaseConfig.projectId);
             console.log('👤 Auth state:', auth.currentUser ? 'Logged in' : 'Not logged in');
-            console.log('💡 Haz clic en Dashboard para crear tu cuenta u obtén tu ID, o en Room para enviar/recibir.');
+            console.log('💡 Dashboard: tu ID | Room: conectar y enviar | Mensajes: historial completo');
         })();
     </script>
 </body>
