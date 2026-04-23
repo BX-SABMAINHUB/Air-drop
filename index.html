@@ -596,10 +596,30 @@
             gap: 8px;
             flex-wrap: wrap;
         }
+        .lang-btn {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 50;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+        .lang-btn:hover {
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 12px rgba(155,94,255,0.3);
+        }
     </style>
 </head>
 <body>
 
+    <button class="lang-btn" id="langToggle">EN</button>
     <div class="toast-container" id="toastContainer"></div>
     <div class="app-container" id="appContainer"></div>
 
@@ -623,6 +643,165 @@
             const auth = firebase.auth();
             const db = firebase.database();
             const storage = firebase.storage();
+
+            // ══════════════════════════════════════
+            // 🌐 TRADUCCIONES
+            // ══════════════════════════════════════
+            const translations = {
+                es: {
+                    title: 'Air-drop',
+                    subtitle: 'Comparte archivos al instante · Dashboard, Room & Mensajes',
+                    dashboard: '📊 Dashboard',
+                    room: '💬 Room',
+                    messages: '📥 Mensajes',
+                    shop: '🛒 Tienda',
+                    friends: '👥 Amigos',
+                    friendRequests: '📩 Solicitudes de Amistad',
+                    verifying: 'Verificando conexión...',
+                    connected: 'Conectado',
+                    noConnection: 'Sin conexión',
+                    login: 'Iniciar Sesión',
+                    register: 'Crear Cuenta',
+                    email: 'Correo electrónico',
+                    password: 'Contraseña',
+                    loginBtn: '🔐 Iniciar Sesión',
+                    registerBtn: '✨ Crear Cuenta',
+                    toggleToRegister: '¿No tienes cuenta? Regístrate',
+                    toggleToLogin: '¿Ya tienes cuenta? Inicia sesión',
+                    back: '← Volver',
+                    chooseName: 'Elige tu nombre',
+                    nameSub: 'Así te verán otros usuarios',
+                    saveName: '💾 Guardar nombre',
+                    logout: 'Cerrar sesión',
+                    yourID: 'Tu identificador único',
+                    copyID: '📋 Copiar ID',
+                    goRoom: '💬 Ir a Room',
+                    goMessages: '📥 Ver Mensajes',
+                    goShop: '🛒 Tienda',
+                    roomConnect: 'Room',
+                    roomSub: 'Conéctate con otro usuario por su ID',
+                    connect: '🔗 Conectar',
+                    disconnect: '🔌 Desconectar',
+                    call: '📞 Llamar',
+                    send: '📨 Enviar',
+                    messagePlaceholder: 'Escribe un mensaje...',
+                    fileLabel: 'Adjuntar archivo o imagen',
+                    sending: 'Enviando...',
+                    sent: '✅ Enviado',
+                    error: 'Error',
+                    messagesView: '📥 Mensajes',
+                    messagesSub: 'Historial de mensajes y archivos recibidos',
+                    allMessages: 'Todos los mensajes',
+                    noMessages: 'No tienes mensajes todavía.',
+                    shopView: '🛒 Tienda Premium',
+                    shopSub: 'Desbloquea envíos de hasta 2 GB, emojis y más',
+                    verifyID: '🔍 Verificar ID',
+                    paypal: '💳 Pagar con PayPal',
+                    confirmPayment: '✅ He completado el pago',
+                    premiumActivated: 'Premium activado correctamente.',
+                    alreadyPremium: 'Ya tienes Premium activado.',
+                    friendsView: '👥 Amigos',
+                    noFriends: 'No tienes amigos aún.',
+                    openChat: 'Abrir panel de chat',
+                    friendRequestsView: '📩 Solicitudes de Amistad',
+                    sendRequest: 'Enviar solicitud',
+                    requestSent: 'Solicitud enviada',
+                    accept: 'Aceptar',
+                    reject: 'Rechazar',
+                    noRequests: 'No tienes solicitudes pendientes.',
+                },
+                en: {
+                    title: 'Air-drop',
+                    subtitle: 'Instant file sharing · Dashboard, Room & Messages',
+                    dashboard: '📊 Dashboard',
+                    room: '💬 Room',
+                    messages: '📥 Messages',
+                    shop: '🛒 Shop',
+                    friends: '👥 Friends',
+                    friendRequests: '📩 Friend Requests',
+                    verifying: 'Checking connection...',
+                    connected: 'Connected',
+                    noConnection: 'No connection',
+                    login: 'Log In',
+                    register: 'Sign Up',
+                    email: 'Email',
+                    password: 'Password',
+                    loginBtn: '🔐 Log In',
+                    registerBtn: '✨ Sign Up',
+                    toggleToRegister: "Don't have an account? Sign Up",
+                    toggleToLogin: 'Already have an account? Log In',
+                    back: '← Back',
+                    chooseName: 'Choose your name',
+                    nameSub: 'This is how others will see you',
+                    saveName: '💾 Save name',
+                    logout: 'Log out',
+                    yourID: 'Your unique ID',
+                    copyID: '📋 Copy ID',
+                    goRoom: '💬 Go to Room',
+                    goMessages: '📥 View Messages',
+                    goShop: '🛒 Shop',
+                    roomConnect: 'Room',
+                    roomSub: 'Connect with another user by ID',
+                    connect: '🔗 Connect',
+                    disconnect: '🔌 Disconnect',
+                    call: '📞 Call',
+                    send: '📨 Send',
+                    messagePlaceholder: 'Write a message...',
+                    fileLabel: 'Attach file or image',
+                    sending: 'Sending...',
+                    sent: '✅ Sent',
+                    error: 'Error',
+                    messagesView: '📥 Messages',
+                    messagesSub: 'Received messages and files history',
+                    allMessages: 'All messages',
+                    noMessages: 'No messages yet.',
+                    shopView: '🛒 Premium Shop',
+                    shopSub: 'Unlock up to 2 GB file transfers, emojis and more',
+                    verifyID: '🔍 Verify ID',
+                    paypal: '💳 Pay with PayPal',
+                    confirmPayment: '✅ I have completed the payment',
+                    premiumActivated: 'Premium activated successfully.',
+                    alreadyPremium: 'You already have Premium.',
+                    friendsView: '👥 Friends',
+                    noFriends: 'No friends yet.',
+                    openChat: 'Open chat panel',
+                    friendRequestsView: '📩 Friend Requests',
+                    sendRequest: 'Send request',
+                    requestSent: 'Request sent',
+                    accept: 'Accept',
+                    reject: 'Reject',
+                    noRequests: 'No pending requests.',
+                }
+            };
+
+            let currentLang = 'es';
+
+            function t(key) {
+                return translations[currentLang]?.[key] || translations['es'][key] || key;
+            }
+
+            function updateUILanguage() {
+                // Se actualiza dinámicamente en cada renderizado llamando a t()
+                document.getElementById('langToggle').textContent = currentLang === 'es' ? 'EN' : 'ES';
+                // Re-renderizar la vista actual para aplicar cambios
+                if (currentView === 'main') renderMainView();
+                else if (currentView === 'auth') renderAuthView();
+                else if (currentView === 'setupUsername') renderSetupUsernameView();
+                else if (currentView === 'showID') renderShowIDView();
+                else if (currentView === 'roomConnect') renderRoomConnectView();
+                else if (currentView === 'roomActive' && connectedRecipientID) {
+                    const recipName = document.querySelector('.card strong')?.textContent || '';
+                    renderRoomActiveView(connectedRecipientID, recipName);
+                } else if (currentView === 'messagesView') renderMessagesView();
+                else if (currentView === 'shop') renderShopView();
+                else if (currentView === 'friends') renderFriendsView();
+                else if (currentView === 'friendRequests') renderFriendRequestsView();
+            }
+
+            document.getElementById('langToggle').addEventListener('click', () => {
+                currentLang = currentLang === 'es' ? 'en' : 'es';
+                updateUILanguage();
+            });
 
             // ══════════════════════════════════════
             // 🧠 ESTADO GLOBAL
@@ -859,15 +1038,17 @@
                 pendingRedirect = null;
                 appContainer.innerHTML = `
                 <div class="card">
-                    <h1 class="main-title">Air-drop</h1>
-                    <p class="subtitle">Comparte archivos al instante · Dashboard, Room & Mensajes</p>
-                    <button class="btn btn-primary" id="btnDashboard">📊 Dashboard</button>
-                    <button class="btn btn-accent" id="btnRoom">💬 Room</button>
-                    <button class="btn btn-messages" id="btnMessages">📥 Mensajes</button>
-                    <button class="btn btn-shop" id="btnShop">🛒 Tienda</button>
+                    <h1 class="main-title">${t('title')}</h1>
+                    <p class="subtitle">${t('subtitle')}</p>
+                    <button class="btn btn-primary" id="btnDashboard">${t('dashboard')}</button>
+                    <button class="btn btn-accent" id="btnRoom">${t('room')}</button>
+                    <button class="btn btn-messages" id="btnMessages">${t('messages')}</button>
+                    <button class="btn btn-shop" id="btnShop">${t('shop')}</button>
+                    <button class="btn btn-secondary" id="btnFriends">${t('friends')}</button>
+                    <button class="btn btn-secondary" id="btnFriendRequests">${t('friendRequests')}</button>
                     <div class="status-bar mt-16" id="statusBar">
                         <span class="status-dot" id="statusDot"></span>
-                        <span id="statusText">Verificando conexión...</span>
+                        <span id="statusText">${t('verifying')}</span>
                     </div>
                 </div>
             `;
@@ -887,6 +1068,14 @@
                     pendingRedirect = 'shop';
                     checkAuthAndProceed();
                 });
+                document.getElementById('btnFriends').addEventListener('click', () => {
+                    pendingRedirect = 'friends';
+                    checkAuthAndProceed();
+                });
+                document.getElementById('btnFriendRequests').addEventListener('click', () => {
+                    pendingRedirect = 'friendRequests';
+                    checkAuthAndProceed();
+                });
                 updateConnectionStatus();
             }
 
@@ -896,7 +1085,7 @@
                 if (!dot || !text) return;
                 const connected = navigator.onLine;
                 dot.className = 'status-dot ' + (connected ? 'online' : 'offline');
-                text.textContent = connected ? 'Conectado' : 'Sin conexión';
+                text.textContent = connected ? t('connected') : t('noConnection');
             }
 
             function checkAuthAndProceed() {
@@ -918,6 +1107,8 @@
                         else if (pendingRedirect === 'room') renderRoomConnectView();
                         else if (pendingRedirect === 'messages') renderMessagesView();
                         else if (pendingRedirect === 'shop') renderShopView();
+                        else if (pendingRedirect === 'friends') renderFriendsView();
+                        else if (pendingRedirect === 'friendRequests') renderFriendRequestsView();
                         else renderMainView();
                     }
                 }).catch(err => {
@@ -931,13 +1122,13 @@
                 currentView = 'auth';
                 appContainer.innerHTML = `
                 <div class="card">
-                    <h1 class="main-title" style="font-size:2rem;">Air-drop</h1>
-                    <p class="subtitle">${authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}</p>
-                    <div class="input-group"><label>Correo electrónico</label><input type="email" class="input-field" id="authEmail" placeholder="tucorreo@ejemplo.com"></div>
-                    <div class="input-group"><label>Contraseña</label><input type="password" class="input-field" id="authPassword" placeholder="••••••••"></div>
-                    <button class="btn btn-primary" id="btnAuthSubmit">${authMode === 'login' ? '🔐 Iniciar Sesión' : '✨ Crear Cuenta'}</button>
-                    <button class="btn btn-secondary" id="btnToggleAuth">${authMode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}</button>
-                    <button class="btn btn-secondary" id="btnBackToMain">← Volver</button>
+                    <h1 class="main-title" style="font-size:2rem;">${t('title')}</h1>
+                    <p class="subtitle">${authMode === 'login' ? t('login') : t('register')}</p>
+                    <div class="input-group"><label>${t('email')}</label><input type="email" class="input-field" id="authEmail" placeholder="tucorreo@ejemplo.com"></div>
+                    <div class="input-group"><label>${t('password')}</label><input type="password" class="input-field" id="authPassword" placeholder="••••••••"></div>
+                    <button class="btn btn-primary" id="btnAuthSubmit">${authMode === 'login' ? t('loginBtn') : t('registerBtn')}</button>
+                    <button class="btn btn-secondary" id="btnToggleAuth">${authMode === 'login' ? t('toggleToRegister') : t('toggleToLogin')}</button>
+                    <button class="btn btn-secondary" id="btnBackToMain">${t('back')}</button>
                     <div class="status-bar mt-8" id="authStatus"></div>
                 </div>
             `;
@@ -974,7 +1165,7 @@
                     if (error.code === 'auth/wrong-password') msg = 'Contraseña incorrecta';
                     showToast(msg, 'error');
                     btn.disabled = false;
-                    btn.innerHTML = authMode === 'login' ? '🔐 Iniciar Sesión' : '✨ Crear Cuenta';
+                    btn.innerHTML = authMode === 'login' ? t('loginBtn') : t('registerBtn');
                 }
             }
 
@@ -982,11 +1173,11 @@
                 currentView = 'setupUsername';
                 appContainer.innerHTML = `
                 <div class="card">
-                    <h1 class="main-title" style="font-size:1.8rem;">Elige tu nombre</h1>
-                    <p class="subtitle">Así te verán otros usuarios</p>
-                    <div class="input-group"><label>Nombre de usuario</label><input type="text" class="input-field" id="usernameInput" placeholder="Ej: Alex23" maxlength="25"></div>
-                    <button class="btn btn-accent" id="btnSaveUsername">💾 Guardar nombre</button>
-                    <button class="btn btn-secondary" id="btnLogoutSetup">Cerrar sesión</button>
+                    <h1 class="main-title" style="font-size:1.8rem;">${t('chooseName')}</h1>
+                    <p class="subtitle">${t('nameSub')}</p>
+                    <div class="input-group"><label>${t('chooseName')}</label><input type="text" class="input-field" id="usernameInput" placeholder="Ej: Alex23" maxlength="25"></div>
+                    <button class="btn btn-accent" id="btnSaveUsername">${t('saveName')}</button>
+                    <button class="btn btn-secondary" id="btnLogoutSetup">${t('logout')}</button>
                 </div>`;
                 document.getElementById('btnSaveUsername').addEventListener('click', handleSaveUsername);
                 document.getElementById('btnLogoutSetup').addEventListener('click', handleLogout);
@@ -1005,11 +1196,13 @@
                     if (pendingRedirect === 'room') renderRoomConnectView();
                     else if (pendingRedirect === 'messages') renderMessagesView();
                     else if (pendingRedirect === 'shop') renderShopView();
+                    else if (pendingRedirect === 'friends') renderFriendsView();
+                    else if (pendingRedirect === 'friendRequests') renderFriendRequestsView();
                     else renderShowIDView();
                 } catch (e) {
                     showToast('Error al guardar', 'error');
                     btn.disabled = false;
-                    btn.innerHTML = '💾 Guardar nombre';
+                    btn.innerHTML = t('saveName');
                 }
             }
 
@@ -1018,14 +1211,14 @@
                 const idToShow = userProfile ? userProfile.userID : '------';
                 appContainer.innerHTML = `
                 <div class="card">
-                    <p class="subtitle">Tu identificador único</p>
+                    <p class="subtitle">${t('yourID')}</p>
                     <div class="id-card"><div class="id-display" id="idDisplay">${escapeHTML(idToShow)}</div><div class="id-label">ID · Comparte este código</div></div>
                     <p class="text-center">👤 ${escapeHTML(userProfile?.username || '')}</p>
-                    <button class="btn btn-primary mt-16" id="btnCopyID">📋 Copiar ID</button>
-                    <button class="btn btn-accent" id="btnGoRoom">💬 Ir a Room</button>
-                    <button class="btn btn-messages" id="btnGoMessages">📥 Ver Mensajes</button>
-                    <button class="btn btn-shop" id="btnGoShop">🛒 Tienda</button>
-                    <button class="btn btn-secondary" id="btnLogoutID">Cerrar sesión</button>
+                    <button class="btn btn-primary mt-16" id="btnCopyID">${t('copyID')}</button>
+                    <button class="btn btn-accent" id="btnGoRoom">${t('goRoom')}</button>
+                    <button class="btn btn-messages" id="btnGoMessages">${t('goMessages')}</button>
+                    <button class="btn btn-shop" id="btnGoShop">${t('goShop')}</button>
+                    <button class="btn btn-secondary" id="btnLogoutID">${t('logout')}</button>
                 </div>`;
                 document.getElementById('btnCopyID').addEventListener('click', () => navigator.clipboard.writeText(idToShow).then(() => showToast('¡ID copiado!', 'success')));
                 document.getElementById('btnGoRoom').addEventListener('click', () => { pendingRedirect = 'room'; renderRoomConnectView(); });
@@ -1042,11 +1235,11 @@
                 cleanupCall();
                 appContainer.innerHTML = `
                 <div class="card">
-                    <h1 class="main-title" style="font-size:1.8rem;">Room</h1>
-                    <p class="subtitle">Conéctate con otro usuario por su ID</p>
+                    <h1 class="main-title" style="font-size:1.8rem;">${t('roomConnect')}</h1>
+                    <p class="subtitle">${t('roomSub')}</p>
                     <div class="input-group"><label>ID del usuario destinatario</label><input type="text" class="input-field" id="recipientIDInput" placeholder="Ej: 482193" maxlength="6"></div>
-                    <button class="btn btn-accent" id="btnConnect">🔗 Conectar</button>
-                    <button class="btn btn-secondary" id="btnBackFromRoom">← Volver al inicio</button>
+                    <button class="btn btn-accent" id="btnConnect">${t('connect')}</button>
+                    <button class="btn btn-secondary" id="btnBackFromRoom">${t('back')}</button>
                 </div>`;
                 document.getElementById('btnConnect').addEventListener('click', handleConnect);
                 document.getElementById('btnBackFromRoom').addEventListener('click', () => {
@@ -1068,7 +1261,7 @@
                     if (!mapSnap.exists()) {
                         showToast('ID no encontrado', 'error');
                         btn.disabled = false;
-                        btn.innerHTML = '🔗 Conectar';
+                        btn.innerHTML = t('connect');
                         return;
                     }
                     recipientUID = mapSnap.val();
@@ -1080,7 +1273,7 @@
                 } catch (e) {
                     showToast('Error al conectar', 'error');
                     btn.disabled = false;
-                    btn.innerHTML = '🔗 Conectar';
+                    btn.innerHTML = t('connect');
                 }
             }
 
@@ -1093,16 +1286,16 @@
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                         <div><span>Conectado con</span> <strong style="color:var(--neon-purple);">${escapeHTML(recipientName)}</strong></div>
                         <div class="gap-8">
-                            <button class="btn btn-call btn-sm" id="btnCall">📞 Llamar</button>
-                            <button class="btn btn-secondary btn-sm" id="btnDisconnect">🔌</button>
+                            <button class="btn btn-call btn-sm" id="btnCall">${t('call')}</button>
+                            <button class="btn btn-secondary btn-sm" id="btnDisconnect">${t('disconnect')}</button>
                         </div>
                     </div>
                     <div style="background:var(--surface2);padding:16px;border-radius:var(--radius-sm);margin-bottom:12px;">
-                        <textarea class="input-field" id="messageText" placeholder="Escribe un mensaje..."></textarea>
+                        <textarea class="input-field" id="messageText" placeholder="${t('messagePlaceholder')}"></textarea>
                         <input type="file" class="input-field mt-8" id="fileInput">
                         <div class="progress-bar-container hidden" id="progressContainer"><div class="progress-bar-fill" id="progressFill"></div></div>
                         <div class="status-bar mt-8" id="sendStatus"></div>
-                        <button class="btn btn-accent mt-8" id="btnSend">📨 Enviar</button>
+                        <button class="btn btn-accent mt-8" id="btnSend">${t('send')}</button>
                     </div>
                     <div class="received-section"><div class="received-title">📥 Bandeja</div><div id="receivedMessages"></div></div>
                     <button class="btn btn-secondary mt-8" id="btnBackToConnect">← Cambiar destinatario</button>
@@ -1132,8 +1325,8 @@
                 if (snap.exists()) {
                     const entries = Object.entries(snap.val()).sort((a, b) => (a[1].timestamp||0) - (b[1].timestamp||0));
                     entries.forEach(([key, msg]) => { if (msg.fromUID !== currentUser?.uid) renderReceivedMessage(key, msg, false); });
-                    if (container.children.length === 0) container.innerHTML = '<p class="text-center text2">Sin mensajes aún</p>';
-                } else container.innerHTML = '<p class="text-center text2">Sin mensajes aún</p>';
+                    if (container.children.length === 0) container.innerHTML = `<p class="text-center text2">${t('noMessages')}</p>`;
+                } else container.innerHTML = `<p class="text-center text2">${t('noMessages')}</p>`;
             }
 
             async function handleSend() {
@@ -1158,17 +1351,17 @@
                         progressFill.style.width = p+'%';
                         statusEl.textContent = `⏳ ${Math.round(p)}% restante ~${formatETA(estimateUploadTime(total-transferred))}`;
                     });
-                    showToast('✅ Enviado', 'success');
+                    showToast(t('sent'), 'success');
                     document.getElementById('messageText').value = '';
                     document.getElementById('fileInput').value = '';
                     progressContainer.classList.add('hidden');
                     statusEl.textContent = '';
                 } catch (e) {
-                    showToast('Error al enviar', 'error');
+                    showToast(t('error'), 'error');
                     progressContainer.classList.add('hidden');
                 } finally {
                     btn.disabled = false;
-                    btn.innerHTML = '📨 Enviar';
+                    btn.innerHTML = t('send');
                 }
             }
 
@@ -1177,10 +1370,10 @@
                 stopListening();
                 appContainer.innerHTML = `
                 <div class="card">
-                    <h1 class="main-title" style="font-size:1.8rem;">📥 Mensajes</h1>
-                    <p class="subtitle">Historial de mensajes y archivos recibidos</p>
-                    <div class="received-section"><div class="received-title">Todos los mensajes</div><div id="receivedMessages"></div></div>
-                    <button class="btn btn-secondary mt-16" id="btnBackFromMessages">← Volver</button>
+                    <h1 class="main-title" style="font-size:1.8rem;">${t('messagesView')}</h1>
+                    <p class="subtitle">${t('messagesSub')}</p>
+                    <div class="received-section"><div class="received-title">${t('allMessages')}</div><div id="receivedMessages"></div></div>
+                    <button class="btn btn-secondary mt-16" id="btnBackFromMessages">${t('back')}</button>
                 </div>`;
                 document.getElementById('btnBackFromMessages').addEventListener('click', () => { pendingRedirect = null; renderMainView(); });
                 loadAllMessages();
@@ -1194,22 +1387,22 @@
                 if (snap.exists()) {
                     const entries = Object.entries(snap.val()).sort((a,b) => (b[1].timestamp||0)-(a[1].timestamp||0));
                     entries.forEach(([key, msg]) => renderReceivedMessage(key, msg, false));
-                    if (container.children.length===0) container.innerHTML='<p class="text-center text2">No tienes mensajes.</p>';
-                } else container.innerHTML='<p class="text-center text2">No tienes mensajes.</p>';
+                    if (container.children.length===0) container.innerHTML=`<p class="text-center text2">${t('noMessages')}</p>`;
+                } else container.innerHTML=`<p class="text-center text2">${t('noMessages')}</p>`;
             }
 
             // ══════════════════════════════════════
-            // 🛒 TIENDA (NUEVA VISTA)
+            // 🛒 TIENDA
             // ══════════════════════════════════════
             function renderShopView() {
                 currentView = 'shop';
                 appContainer.innerHTML = `
                 <div class="card">
-                    <h1 class="main-title" style="font-size:1.8rem;">🛒 Tienda Premium</h1>
-                    <p class="subtitle">Desbloquea envíos de hasta 2 GB, emojis y más</p>
+                    <h1 class="main-title" style="font-size:1.8rem;">${t('shopView')}</h1>
+                    <p class="subtitle">${t('shopSub')}</p>
                     <div id="shopStep1">
                         <div class="input-group"><label>Introduce tu ID de usuario</label><input type="text" class="input-field" id="shopUserIdInput" placeholder="Ej: 482193" maxlength="6"></div>
-                        <button class="btn btn-accent" id="btnVerifyShopID">🔍 Verificar ID</button>
+                        <button class="btn btn-accent" id="btnVerifyShopID">${t('verifyID')}</button>
                         <p class="status-bar" id="shopStatus1"></p>
                     </div>
                     <div id="shopStep2" class="hidden">
@@ -1220,11 +1413,11 @@
                             <li>⚡ Mayor velocidad de transferencia</li>
                         </ul>
                         <p style="text-align:center;font-weight:700;color:var(--gold-light);">2,99 €</p>
-                        <button class="btn btn-shop" id="btnPayPal">💳 Pagar con PayPal</button>
-                        <button class="btn btn-accent mt-8" id="btnConfirmPayment">✅ He completado el pago</button>
+                        <button class="btn btn-shop" id="btnPayPal">${t('paypal')}</button>
+                        <button class="btn btn-accent mt-8" id="btnConfirmPayment">${t('confirmPayment')}</button>
                         <p class="status-bar" id="shopStatus2"></p>
                     </div>
-                    <button class="btn btn-secondary mt-8" id="btnBackFromShop">← Volver</button>
+                    <button class="btn btn-secondary mt-8" id="btnBackFromShop">${t('back')}</button>
                 </div>`;
                 document.getElementById('btnVerifyShopID').addEventListener('click', verifyShopID);
                 document.getElementById('btnPayPal').addEventListener('click', () => {
@@ -1254,7 +1447,7 @@
                         showToast('Ese ID no existe en Air‑drop', 'error');
                         statusEl.textContent = 'ID no encontrado';
                         btn.disabled = false;
-                        btn.innerHTML = '🔍 Verificar ID';
+                        btn.innerHTML = t('verifyID');
                         return;
                     }
                     const uid = mapSnap.val();
@@ -1263,7 +1456,7 @@
                         showToast('Perfil no encontrado', 'error');
                         statusEl.textContent = 'Perfil no encontrado';
                         btn.disabled = false;
-                        btn.innerHTML = '🔍 Verificar ID';
+                        btn.innerHTML = t('verifyID');
                         return;
                     }
                     const profile = userSnap.val();
@@ -1271,7 +1464,7 @@
                     document.getElementById('shopStep2').classList.remove('hidden');
                     document.getElementById('shopUserName').textContent = `👤 ${profile.username || 'Usuario'} (ID: ${rawID})`;
                     if (profile.premium) {
-                        document.getElementById('shopStatus2').textContent = '✅ Ya tienes Premium activado.';
+                        document.getElementById('shopStatus2').textContent = t('alreadyPremium');
                         document.getElementById('btnPayPal').classList.add('hidden');
                         document.getElementById('btnConfirmPayment').classList.add('hidden');
                     }
@@ -1280,7 +1473,7 @@
                     showToast('Error al verificar', 'error');
                 } finally {
                     btn.disabled = false;
-                    btn.innerHTML = '🔍 Verificar ID';
+                    btn.innerHTML = t('verifyID');
                 }
             }
 
@@ -1296,7 +1489,7 @@
                     if (!mapSnap.exists()) {
                         showToast('ID no válido', 'error');
                         btn.disabled = false;
-                        btn.innerHTML = '✅ He completado el pago';
+                        btn.innerHTML = t('confirmPayment');
                         return;
                     }
                     const uid = mapSnap.val();
@@ -1306,15 +1499,186 @@
                         allowEmojis: true,
                         premiumActivatedAt: firebase.database.ServerValue.TIMESTAMP
                     });
-                    showToast('🎉 ¡Premium activado! Disfruta de los beneficios.', 'success');
-                    statusEl.textContent = '✅ Premium activado correctamente.';
+                    showToast('🎉 ¡Premium activado!', 'success');
+                    statusEl.textContent = t('premiumActivated');
                     document.getElementById('btnPayPal').classList.add('hidden');
                     btn.classList.add('hidden');
                 } catch (e) {
                     showToast('Error al activar Premium', 'error');
                     btn.disabled = false;
-                    btn.innerHTML = '✅ He completado el pago';
+                    btn.innerHTML = t('confirmPayment');
                 }
+            }
+
+            // ══════════════════════════════════════
+            // 👥 AMIGOS Y SOLICITUDES
+            // ══════════════════════════════════════
+            function renderFriendsView() {
+                currentView = 'friends';
+                appContainer.innerHTML = `
+                <div class="card">
+                    <h1 class="main-title" style="font-size:1.8rem;">${t('friendsView')}</h1>
+                    <div id="friendsList"></div>
+                    <button class="btn btn-secondary mt-16" id="btnBackFromFriends">${t('back')}</button>
+                </div>`;
+                document.getElementById('btnBackFromFriends').addEventListener('click', () => {
+                    pendingRedirect = null;
+                    renderMainView();
+                });
+                loadFriends();
+            }
+
+            async function loadFriends() {
+                const container = document.getElementById('friendsList');
+                if (!container || !userProfile) return;
+                const snap = await db.ref('friends/' + userProfile.userID).once('value');
+                container.innerHTML = '';
+                if (snap.exists()) {
+                    const friends = snap.val();
+                    const entries = Object.entries(friends);
+                    if (entries.length === 0) {
+                        container.innerHTML = `<p class="text-center text2">${t('noFriends')}</p>`;
+                        return;
+                    }
+                    for (let [friendUID, friendData] of entries) {
+                        const div = document.createElement('div');
+                        div.className = 'received-item';
+                        div.innerHTML = `
+                            <span>👤 ${escapeHTML(friendData.username)} (ID: ${escapeHTML(friendData.userID)})</span>
+                            <button class="btn btn-accent btn-sm open-chat-btn" data-userid="${escapeHTML(friendData.userID)}">${t('openChat')}</button>
+                        `;
+                        container.appendChild(div);
+                    }
+                    document.querySelectorAll('.open-chat-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const targetID = e.target.dataset.userid;
+                            if (targetID) {
+                                connectedRecipientID = targetID;
+                                // Buscar nombre y abrir chat
+                                db.ref('userIDMap/' + targetID).once('value').then(snap => {
+                                    if (snap.exists()) {
+                                        const uid = snap.val();
+                                        db.ref('users/' + uid).once('value').then(userSnap => {
+                                            const name = userSnap.exists() ? userSnap.val().username : 'Amigo';
+                                            renderRoomActiveView(targetID, name);
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                    });
+                } else {
+                    container.innerHTML = `<p class="text-center text2">${t('noFriends')}</p>`;
+                }
+            }
+
+            function renderFriendRequestsView() {
+                currentView = 'friendRequests';
+                appContainer.innerHTML = `
+                <div class="card">
+                    <h1 class="main-title" style="font-size:1.8rem;">${t('friendRequestsView')}</h1>
+                    <div class="input-group">
+                        <label>ID del usuario para enviar solicitud</label>
+                        <input type="text" class="input-field" id="requestIDInput" placeholder="Ej: 482193" maxlength="6">
+                    </div>
+                    <button class="btn btn-accent" id="btnSendRequest">${t('sendRequest')}</button>
+                    <div class="received-section mt-8">
+                        <div class="received-title">Solicitudes recibidas</div>
+                        <div id="receivedRequests"></div>
+                    </div>
+                    <button class="btn btn-secondary mt-16" id="btnBackFromRequests">${t('back')}</button>
+                </div>`;
+                document.getElementById('btnSendRequest').addEventListener('click', sendFriendRequest);
+                document.getElementById('btnBackFromRequests').addEventListener('click', () => {
+                    pendingRedirect = null;
+                    renderMainView();
+                });
+                loadReceivedRequests();
+            }
+
+            async function sendFriendRequest() {
+                const targetID = document.getElementById('requestIDInput').value.trim();
+                if (!/^\d{6}$/.test(targetID)) return showToast('ID inválido', 'error');
+                if (targetID === userProfile.userID) return showToast('No puedes enviarte solicitud a ti mismo', 'error');
+                const mapSnap = await db.ref('userIDMap/' + targetID).once('value');
+                if (!mapSnap.exists()) return showToast('ID no encontrado', 'error');
+                const targetUID = mapSnap.val();
+                // Verificar que no sean ya amigos
+                const friendSnap = await db.ref(`friends/${userProfile.userID}/${targetUID}`).once('value');
+                if (friendSnap.exists()) return showToast('Ya sois amigos', 'error');
+                // Enviar solicitud
+                await db.ref(`friendRequests/${targetUID}/${currentUser.uid}`).set({
+                    fromUsername: userProfile.username,
+                    fromUserID: userProfile.userID,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                showToast(t('requestSent'), 'success');
+                document.getElementById('requestIDInput').value = '';
+            }
+
+            async function loadReceivedRequests() {
+                const container = document.getElementById('receivedRequests');
+                if (!container || !userProfile) return;
+                const snap = await db.ref('friendRequests/' + currentUser.uid).once('value');
+                container.innerHTML = '';
+                if (snap.exists()) {
+                    const requests = snap.val();
+                    const entries = Object.entries(requests);
+                    if (entries.length === 0) {
+                        container.innerHTML = `<p class="text-center text2">${t('noRequests')}</p>`;
+                        return;
+                    }
+                    for (let [fromUID, reqData] of entries) {
+                        const div = document.createElement('div');
+                        div.className = 'received-item';
+                        div.innerHTML = `
+                            <span>📩 ${escapeHTML(reqData.fromUsername)} (ID: ${escapeHTML(reqData.fromUserID)})</span>
+                            <div class="gap-8 mt-8">
+                                <button class="btn btn-accent btn-sm accept-btn" data-fromuid="${escapeHTML(fromUID)}" data-fromid="${escapeHTML(reqData.fromUserID)}">${t('accept')}</button>
+                                <button class="btn btn-secondary btn-sm reject-btn" data-fromuid="${escapeHTML(fromUID)}">${t('reject')}</button>
+                            </div>
+                        `;
+                        container.appendChild(div);
+                    }
+                    document.querySelectorAll('.accept-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            const fromUID = e.target.dataset.fromuid;
+                            const fromID = e.target.dataset.fromid;
+                            await acceptFriendRequest(fromUID, fromID);
+                        });
+                    });
+                    document.querySelectorAll('.reject-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            const fromUID = e.target.dataset.fromuid;
+                            await db.ref(`friendRequests/${currentUser.uid}/${fromUID}`).remove();
+                            loadReceivedRequests();
+                        });
+                    });
+                } else {
+                    container.innerHTML = `<p class="text-center text2">${t('noRequests')}</p>`;
+                }
+            }
+
+            async function acceptFriendRequest(fromUID, fromID) {
+                // Obtener datos del solicitante
+                const userSnap = await db.ref('users/' + fromUID).once('value');
+                if (!userSnap.exists()) return;
+                const friendProfile = userSnap.val();
+                // Añadir a lista de amigos de ambos
+                await db.ref(`friends/${currentUser.uid}/${fromUID}`).set({
+                    username: friendProfile.username,
+                    userID: friendProfile.userID,
+                    addedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                await db.ref(`friends/${fromUID}/${currentUser.uid}`).set({
+                    username: userProfile.username,
+                    userID: userProfile.userID,
+                    addedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                // Eliminar solicitud
+                await db.ref(`friendRequests/${currentUser.uid}/${fromUID}`).remove();
+                showToast('¡Solicitud aceptada!', 'success');
+                loadReceivedRequests();
             }
 
             // ══════════════════════════════════════
@@ -1517,12 +1881,12 @@
                 const text = document.getElementById('statusText');
                 if (dot && text) {
                     dot.className = 'status-dot ' + (snap.val() ? 'online' : 'offline');
-                    text.textContent = snap.val() ? 'Conectado' : 'Desconectado';
+                    text.textContent = snap.val() ? t('connected') : t('noConnection');
                 }
             });
 
             renderMainView();
-            console.log('🚀 Air-drop con Tienda Premium activo');
+            console.log('🚀 Air-drop con amigos, solicitudes y cambio de idioma activo');
         })();
     </script>
 </body>
