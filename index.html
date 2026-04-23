@@ -215,6 +215,15 @@
             transform: translateY(-2px);
             box-shadow: 0 0 20px rgba(77, 202, 122, 0.5), 0 0 60px rgba(77, 202, 122, 0.2);
         }
+        .btn-call {
+            background: linear-gradient(135deg, #0077ff, #00c3ff);
+            color: #fff;
+            box-shadow: 0 4px 18px rgba(0, 150, 255, 0.4);
+        }
+        .btn-call:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(0, 180, 255, 0.6);
+        }
         .btn:active {
             transform: scale(0.97);
             transition: 0.1s;
@@ -475,6 +484,67 @@
             }
         }
 
+        /* ── Videollamada ── */
+        .call-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            flex-direction: column;
+            padding: 20px;
+        }
+        .video-container {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        video {
+            width: 260px;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 12px;
+            background: #000;
+            border: 2px solid var(--border);
+            box-shadow: 0 0 20px rgba(0,0,0,0.7);
+        }
+        .call-actions {
+            display: flex;
+            gap: 16px;
+        }
+        .btn-call-end {
+            background: #e05555;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-call-end:hover {
+            background: #ff3b3b;
+        }
+        .incoming-call-toast {
+            background: var(--surface2);
+            border: 2px solid var(--neon-purple);
+            padding: 20px;
+            border-radius: var(--radius);
+            text-align: center;
+            box-shadow: 0 0 35px rgba(155,94,255,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            align-items: center;
+        }
+
         @media (max-width: 540px) {
             .card {
                 padding: 24px 16px;
@@ -488,6 +558,10 @@
             .btn {
                 padding: 13px 18px;
                 font-size: 0.95rem;
+            }
+            video {
+                width: 140px;
+                height: 100px;
             }
         }
         .hidden {
@@ -549,8 +623,18 @@
             let connectedRecipientID = null;
             let messagesListener = null;
             let recipientUID = null;
-            const ASSUMED_UPLOAD_SPEED_BPS = 1.2 * 1024 * 1024; // 1.2 MB/s subida estimada
-            const ASSUMED_DOWNLOAD_SPEED_BPS = 2.5 * 1024 * 1024; // 2.5 MB/s descarga estimada
+            const ASSUMED_UPLOAD_SPEED_BPS = 1.2 * 1024 * 1024;
+            const ASSUMED_DOWNLOAD_SPEED_BPS = 2.5 * 1024 * 1024;
+
+            // WebRTC
+            let localStream = null;
+            let peerConnection = null;
+            let callActive = false;
+            let currentCallData = null; // { callId, targetID }
+
+            const servers = {
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            };
 
             // ══════════════════════════════════════
             // 🍞 TOAST SYSTEM
@@ -567,9 +651,6 @@
                 }, duration);
             }
 
-            // ══════════════════════════════════════
-            // 🔊 SONIDO DE NOTIFICACIÓN
-            // ══════════════════════════════════════
             function playNotificationSound() {
                 try {
                     const ctx = new(window.AudioContext || window.webkitAudioContext)();
@@ -588,9 +669,6 @@
                 } catch (e) {}
             }
 
-            // ══════════════════════════════════════
-            // ⏱ TIEMPO ESTIMADO
-            // ══════════════════════════════════════
             function formatETA(seconds) {
                 if (seconds < 1) return 'menos de 1 s';
                 if (seconds < 60) return `${Math.round(seconds)} s`;
@@ -607,17 +685,11 @@
                 return fileSizeBytes / ASSUMED_DOWNLOAD_SPEED_BPS;
             }
 
-            // ══════════════════════════════════════
-            // 🔍 OBTENER PERFIL
-            // ══════════════════════════════════════
             async function fetchUserProfile(uid) {
                 const snap = await db.ref('users/' + uid).once('value');
                 return snap.exists() ? snap.val() : null;
             }
 
-            // ══════════════════════════════════════
-            // 🎲 GENERAR ID ÚNICO DE 6 DÍGITOS
-            // ══════════════════════════════════════
             async function generateUniqueID() {
                 let attempts = 0;
                 while (attempts < 50) {
@@ -632,9 +704,6 @@
                 return Math.floor(100000 + Math.random() * 900000).toString();
             }
 
-            // ══════════════════════════════════════
-            // 💾 GUARDAR PERFIL
-            // ══════════════════════════════════════
             async function saveProfile(uid, username) {
                 const userID = await generateUniqueID();
                 const profileData = {
@@ -649,9 +718,6 @@
                 return profileData;
             }
 
-            // ══════════════════════════════════════
-            // 📨 ENVIAR MENSAJE/ARCHIVO
-            // ══════════════════════════════════════
             async function sendDataToRecipient(recipientID, messageText, file, onProgress) {
                 if (!userProfile || !currentUser) {
                     showToast('Debes iniciar sesión primero', 'error');
@@ -679,20 +745,16 @@
                     const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
                     const fileRef = storage.ref('uploads/' + recipientID + '/' + Date.now() + '_' + sanitizedName);
                     const uploadTask = fileRef.put(file);
-
-                    // Progreso de subida
                     uploadTask.on('state_changed',
                         (snapshot) => {
                             const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                            if (onProgress) onProgress(progress, snapshot.bytesTransferred, snapshot
-                                .totalBytes);
+                            if (onProgress) onProgress(progress, snapshot.bytesTransferred, snapshot.totalBytes);
                         },
                         (error) => {
                             console.error('Upload error:', error);
                             showToast('Error al subir el archivo', 'error');
                         }
                     );
-
                     await uploadTask;
                     const downloadURL = await fileRef.getDownloadURL();
                     messageData.fileUrl = downloadURL;
@@ -706,9 +768,6 @@
                 return true;
             }
 
-            // ══════════════════════════════════════
-            // 👂 ESCUCHAR MENSAJES ENTRANTES
-            // ══════════════════════════════════════
             function listenForMessages(myUserID) {
                 if (messagesListener) {
                     db.ref('messages/' + myUserID).off('child_added', messagesListener);
@@ -731,16 +790,12 @@
                 }
             }
 
-            // ══════════════════════════════════════
-            // 🖼 RENDERIZAR MENSAJE RECIBIDO
-            // ══════════════════════════════════════
             function renderReceivedMessage(msgKey, msg, prepend = true) {
                 const container = document.getElementById('receivedMessages');
                 if (!container) return;
                 const div = document.createElement('div');
                 div.className = 'received-item';
                 div.id = 'msg-' + msgKey;
-
                 let contentHTML =
                     `<div class="sender">📨 De: ${escapeHTML(msg.fromUsername || 'Desconocido')} (ID: ${escapeHTML(msg.fromUserID || 'N/A')})</div>`;
                 if (msg.message) {
@@ -756,8 +811,7 @@
                     const etaText = fileSize > 0 ? formatETA(downloadSeconds) : 'desconocido';
                     contentHTML +=
                         `<a href="${escapeHTML(msg.fileUrl)}" target="_blank" rel="noopener" class="download-link">📎 Descargar: ${escapeHTML(msg.fileName || 'archivo')}</a>`;
-                    contentHTML +=
-                        `<span class="eta-badge">⏳ Descarga est. ~${etaText}</span>`;
+                    contentHTML += `<span class="eta-badge">⏳ Descarga est. ~${etaText}</span>`;
                     if (fileSize > 0) {
                         const sizeMB = (fileSize / (1024 * 1024)).toFixed(2);
                         contentHTML +=
@@ -770,11 +824,8 @@
                         `<div class="time">🕐 ${date.toLocaleDateString()} ${date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>`;
                 }
                 div.innerHTML = contentHTML;
-                if (prepend) {
-                    container.prepend(div);
-                } else {
-                    container.appendChild(div);
-                }
+                if (prepend) container.prepend(div);
+                else container.appendChild(div);
                 div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
 
@@ -831,11 +882,8 @@
             }
 
             function checkAuthAndProceed() {
-                if (currentUser) {
-                    proceedAfterAuth();
-                } else {
-                    renderAuthView();
-                }
+                if (currentUser) proceedAfterAuth();
+                else renderAuthView();
             }
 
             function proceedAfterAuth() {
@@ -848,15 +896,10 @@
                     if (!profile || !profile.username || !profile.userID) {
                         renderSetupUsernameView();
                     } else {
-                        if (pendingRedirect === 'dashboard') {
-                            renderShowIDView();
-                        } else if (pendingRedirect === 'room') {
-                            renderRoomConnectView();
-                        } else if (pendingRedirect === 'messages') {
-                            renderMessagesView();
-                        } else {
-                            renderMainView();
-                        }
+                        if (pendingRedirect === 'dashboard') renderShowIDView();
+                        else if (pendingRedirect === 'room') renderRoomConnectView();
+                        else if (pendingRedirect === 'messages') renderMessagesView();
+                        else renderMainView();
                     }
                 }).catch(err => {
                     console.error('Error fetching profile:', err);
@@ -871,20 +914,10 @@
                 <div class="card">
                     <h1 class="main-title" style="font-size:2rem;">Air-drop</h1>
                     <p class="subtitle">${authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}</p>
-                    <div class="input-group">
-                        <label>Correo electrónico</label>
-                        <input type="email" class="input-field" id="authEmail" placeholder="tucorreo@ejemplo.com">
-                    </div>
-                    <div class="input-group">
-                        <label>Contraseña</label>
-                        <input type="password" class="input-field" id="authPassword" placeholder="••••••••">
-                    </div>
-                    <button class="btn btn-primary" id="btnAuthSubmit">
-                        ${authMode === 'login' ? '🔐 Iniciar Sesión' : '✨ Crear Cuenta'}
-                    </button>
-                    <button class="btn btn-secondary" id="btnToggleAuth">
-                        ${authMode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
-                    </button>
+                    <div class="input-group"><label>Correo electrónico</label><input type="email" class="input-field" id="authEmail" placeholder="tucorreo@ejemplo.com"></div>
+                    <div class="input-group"><label>Contraseña</label><input type="password" class="input-field" id="authPassword" placeholder="••••••••"></div>
+                    <button class="btn btn-primary" id="btnAuthSubmit">${authMode === 'login' ? '🔐 Iniciar Sesión' : '✨ Crear Cuenta'}</button>
+                    <button class="btn btn-secondary" id="btnToggleAuth">${authMode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}</button>
                     <button class="btn btn-secondary" id="btnBackToMain">← Volver</button>
                     <div class="status-bar mt-8" id="authStatus"></div>
                 </div>
@@ -899,50 +932,30 @@
                     authMode = 'login';
                     renderMainView();
                 });
-                document.getElementById('authPassword').addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') handleAuth();
-                });
-                document.getElementById('authEmail').addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') document.getElementById('authPassword').focus();
-                });
             }
 
             async function handleAuth() {
                 const email = document.getElementById('authEmail').value.trim();
                 const password = document.getElementById('authPassword').value;
-                const statusEl = document.getElementById('authStatus');
-                if (!email || !password) {
-                    showToast('Completa todos los campos', 'error');
-                    return;
-                }
-                if (password.length < 6) {
-                    showToast('La contraseña debe tener al menos 6 caracteres', 'error');
-                    return;
-                }
+                if (!email || !password) return showToast('Completa todos los campos', 'error');
+                if (password.length < 6) return showToast('La contraseña debe tener al menos 6 caracteres', 'error');
                 const btn = document.getElementById('btnAuthSubmit');
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner"></span> Procesando...';
-                if (statusEl) statusEl.textContent = 'Conectando...';
                 try {
-                    if (authMode === 'register') {
-                        await auth.createUserWithEmailAndPassword(email, password);
-                        showToast('¡Cuenta creada con éxito!', 'success');
-                    } else {
-                        await auth.signInWithEmailAndPassword(email, password);
-                        showToast('¡Sesión iniciada!', 'success');
-                    }
+                    if (authMode === 'register') await auth.createUserWithEmailAndPassword(email, password);
+                    else await auth.signInWithEmailAndPassword(email, password);
+                    showToast(authMode === 'register' ? '¡Cuenta creada!' : '¡Sesión iniciada!', 'success');
                 } catch (error) {
-                    let msg = 'Error desconocido';
+                    let msg = 'Error';
                     if (error.code === 'auth/email-already-in-use') msg = 'Este correo ya está registrado';
-                    if (error.code === 'auth/invalid-email') msg = 'Correo electrónico inválido';
-                    if (error.code === 'auth/weak-password') msg = 'Contraseña demasiado débil (mín. 6 caracteres)';
+                    if (error.code === 'auth/invalid-email') msg = 'Correo inválido';
+                    if (error.code === 'auth/weak-password') msg = 'Contraseña muy débil';
                     if (error.code === 'auth/user-not-found') msg = 'Usuario no encontrado';
                     if (error.code === 'auth/wrong-password') msg = 'Contraseña incorrecta';
-                    if (error.code === 'auth/invalid-credential') msg = 'Credenciales inválidas';
                     showToast(msg, 'error');
                     btn.disabled = false;
                     btn.innerHTML = authMode === 'login' ? '🔐 Iniciar Sesión' : '✨ Crear Cuenta';
-                    if (statusEl) statusEl.textContent = '';
                 }
             }
 
@@ -952,54 +965,31 @@
                 <div class="card">
                     <h1 class="main-title" style="font-size:1.8rem;">Elige tu nombre</h1>
                     <p class="subtitle">Así te verán otros usuarios</p>
-                    <div class="input-group">
-                        <label>Nombre de usuario</label>
-                        <input type="text" class="input-field" id="usernameInput" placeholder="Ej: Alex23" maxlength="25">
-                    </div>
+                    <div class="input-group"><label>Nombre de usuario</label><input type="text" class="input-field" id="usernameInput" placeholder="Ej: Alex23" maxlength="25"></div>
                     <button class="btn btn-accent" id="btnSaveUsername">💾 Guardar nombre</button>
                     <button class="btn btn-secondary" id="btnLogoutSetup">Cerrar sesión</button>
-                    <div class="status-bar mt-8" id="setupStatus"></div>
-                </div>
-            `;
+                </div>`;
                 document.getElementById('btnSaveUsername').addEventListener('click', handleSaveUsername);
                 document.getElementById('btnLogoutSetup').addEventListener('click', handleLogout);
-                document.getElementById('usernameInput').addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') handleSaveUsername();
-                });
-                setTimeout(() => document.getElementById('usernameInput')?.focus(), 300);
             }
 
             async function handleSaveUsername() {
                 const username = document.getElementById('usernameInput').value.trim();
-                const statusEl = document.getElementById('setupStatus');
-                if (!username) {
-                    showToast('Elige un nombre de usuario', 'error');
-                    return;
-                }
-                if (username.length < 2) {
-                    showToast('El nombre debe tener al menos 2 caracteres', 'error');
-                    return;
-                }
+                if (!username) return showToast('Elige un nombre', 'error');
+                if (username.length < 2) return showToast('Mínimo 2 caracteres', 'error');
                 const btn = document.getElementById('btnSaveUsername');
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner"></span> Guardando...';
-                if (statusEl) statusEl.textContent = 'Generando ID único...';
                 try {
                     await saveProfile(currentUser.uid, username);
-                    showToast('¡Perfil creado! Tu ID está listo', 'success');
-                    if (pendingRedirect === 'room') {
-                        renderRoomConnectView();
-                    } else if (pendingRedirect === 'messages') {
-                        renderMessagesView();
-                    } else {
-                        renderShowIDView();
-                    }
-                } catch (error) {
-                    console.error('Error saving profile:', error);
-                    showToast('Error al guardar perfil', 'error');
+                    showToast('¡Perfil creado!', 'success');
+                    if (pendingRedirect === 'room') renderRoomConnectView();
+                    else if (pendingRedirect === 'messages') renderMessagesView();
+                    else renderShowIDView();
+                } catch (e) {
+                    showToast('Error al guardar', 'error');
                     btn.disabled = false;
                     btn.innerHTML = '💾 Guardar nombre';
-                    if (statusEl) statusEl.textContent = '';
                 }
             }
 
@@ -1009,39 +999,18 @@
                 appContainer.innerHTML = `
                 <div class="card">
                     <p class="subtitle">Tu identificador único</p>
-                    <div class="id-card">
-                        <div class="id-display" id="idDisplay" title="Clic para copiar">${escapeHTML(idToShow)}</div>
-                        <div class="id-label">ID · Comparte este código</div>
-                    </div>
-                    <p class="text-center" style="color:var(--text2);font-size:0.8rem;margin-top:4px;">
-                        👤 ${escapeHTML(userProfile?.username || '')}
-                    </p>
+                    <div class="id-card"><div class="id-display" id="idDisplay">${escapeHTML(idToShow)}</div><div class="id-label">ID · Comparte este código</div></div>
+                    <p class="text-center">👤 ${escapeHTML(userProfile?.username || '')}</p>
                     <button class="btn btn-primary mt-16" id="btnCopyID">📋 Copiar ID</button>
                     <button class="btn btn-accent" id="btnGoRoom">💬 Ir a Room</button>
                     <button class="btn btn-messages" id="btnGoMessages">📥 Ver Mensajes</button>
                     <button class="btn btn-secondary" id="btnLogoutID">Cerrar sesión</button>
-                </div>
-            `;
-                document.getElementById('btnCopyID').addEventListener('click', () => {
-                    navigator.clipboard.writeText(idToShow).then(() => {
-                        showToast('¡ID copiado al portapapeles!', 'success');
-                    }).catch(() => {
-                        showToast('Selecciona y copia el ID manualmente', 'info');
-                    });
-                });
-                document.getElementById('idDisplay').addEventListener('click', () => {
-                    navigator.clipboard.writeText(idToShow).then(() => {
-                        showToast('¡ID copiado!', 'success');
-                    }).catch(() => {});
-                });
-                document.getElementById('btnGoRoom').addEventListener('click', () => {
-                    pendingRedirect = 'room';
-                    renderRoomConnectView();
-                });
-                document.getElementById('btnGoMessages').addEventListener('click', () => {
-                    pendingRedirect = 'messages';
-                    renderMessagesView();
-                });
+                </div>`;
+                document.getElementById('btnCopyID').addEventListener('click', () => navigator.clipboard.writeText(idToShow).then(() => showToast('¡ID copiado!', 'success')));
+                document.getElementById('btnGoRoom').addEventListener('click', () => { pendingRedirect = 'room';
+                    renderRoomConnectView(); });
+                document.getElementById('btnGoMessages').addEventListener('click', () => { pendingRedirect = 'messages';
+                    renderMessagesView(); });
                 document.getElementById('btnLogoutID').addEventListener('click', handleLogout);
             }
 
@@ -1050,219 +1019,132 @@
                 connectedRecipientID = null;
                 recipientUID = null;
                 stopListening();
+                cleanupCall();
                 appContainer.innerHTML = `
                 <div class="card">
                     <h1 class="main-title" style="font-size:1.8rem;">Room</h1>
                     <p class="subtitle">Conéctate con otro usuario por su ID</p>
-                    <div class="input-group">
-                        <label>ID del usuario destinatario</label>
-                        <input type="text" class="input-field" id="recipientIDInput" placeholder="Ej: 482193" maxlength="6" inputmode="numeric" pattern="[0-9]{6}">
-                    </div>
+                    <div class="input-group"><label>ID del usuario destinatario</label><input type="text" class="input-field" id="recipientIDInput" placeholder="Ej: 482193" maxlength="6"></div>
                     <button class="btn btn-accent" id="btnConnect">🔗 Conectar</button>
                     <button class="btn btn-secondary" id="btnBackFromRoom">← Volver al inicio</button>
-                    <div class="status-bar mt-8" id="roomStatus"></div>
-                </div>
-            `;
+                </div>`;
                 document.getElementById('btnConnect').addEventListener('click', handleConnect);
                 document.getElementById('btnBackFromRoom').addEventListener('click', () => {
                     stopListening();
                     pendingRedirect = null;
-                    connectedRecipientID = null;
-                    recipientUID = null;
                     renderMainView();
                 });
-                document.getElementById('recipientIDInput').addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') handleConnect();
-                });
-                setTimeout(() => document.getElementById('recipientIDInput')?.focus(), 300);
             }
 
             async function handleConnect() {
-                const input = document.getElementById('recipientIDInput');
-                const rawID = input.value.trim();
-                const statusEl = document.getElementById('roomStatus');
-                if (!/^\d{6}$/.test(rawID)) {
-                    showToast('El ID debe tener exactamente 6 dígitos', 'error');
-                    return;
-                }
-                if (rawID === userProfile?.userID) {
-                    showToast('No puedes conectarte a tu propio ID', 'error');
-                    return;
-                }
+                const rawID = document.getElementById('recipientIDInput').value.trim();
+                if (!/^\d{6}$/.test(rawID)) return showToast('ID inválido (6 dígitos)', 'error');
+                if (rawID === userProfile?.userID) return showToast('No puedes conectarte a ti mismo', 'error');
                 const btn = document.getElementById('btnConnect');
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner"></span> Buscando...';
-                if (statusEl) statusEl.textContent = 'Buscando usuario...';
                 try {
                     const mapSnap = await db.ref('userIDMap/' + rawID).once('value');
                     if (!mapSnap.exists()) {
-                        showToast('El ID introducido no existe. Verifica e intenta de nuevo.', 'error');
+                        showToast('ID no encontrado', 'error');
                         btn.disabled = false;
                         btn.innerHTML = '🔗 Conectar';
-                        if (statusEl) statusEl.textContent = '';
                         return;
                     }
                     recipientUID = mapSnap.val();
                     connectedRecipientID = rawID;
                     const recipSnap = await db.ref('users/' + recipientUID).once('value');
                     const recipName = recipSnap.exists() ? recipSnap.val().username : 'Desconocido';
-                    showToast(`✅ Conectado con ${recipName} (ID: ${rawID})`, 'success');
+                    showToast(`✅ Conectado con ${recipName}`, 'success');
                     renderRoomActiveView(rawID, recipName);
-                } catch (error) {
-                    console.error('Error connecting:', error);
+                } catch (e) {
                     showToast('Error al conectar', 'error');
                     btn.disabled = false;
                     btn.innerHTML = '🔗 Conectar';
-                    if (statusEl) statusEl.textContent = '';
                 }
             }
 
             function renderRoomActiveView(recipientID, recipientName) {
                 currentView = 'roomActive';
-                if (userProfile) {
-                    listenForMessages(userProfile.userID);
-                }
+                if (userProfile) listenForMessages(userProfile.userID);
+                listenForIncomingCall();
                 appContainer.innerHTML = `
                 <div class="card">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-                        <div>
-                            <span style="color:var(--text2);font-size:0.8rem;">Conectado con</span>
-                            <strong style="color:var(--neon-purple);display:block;">${escapeHTML(recipientName)}</strong>
-                            <span style="font-size:0.75rem;color:var(--text2);">ID: ${escapeHTML(recipientID)}</span>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <div><span>Conectado con</span> <strong style="color:var(--neon-purple);">${escapeHTML(recipientName)}</strong></div>
+                        <div class="gap-8">
+                            <button class="btn btn-call btn-sm" id="btnCall">📞 Llamar</button>
+                            <button class="btn btn-secondary btn-sm" id="btnDisconnect">🔌</button>
                         </div>
-                        <button class="btn btn-secondary btn-sm" id="btnDisconnect">🔌 Desconectar</button>
                     </div>
-                    <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;border:1px solid var(--border);">
-                        <p style="font-weight:600;margin-bottom:10px;font-size:0.9rem;color:var(--neon-blue);">📤 Enviar a ${escapeHTML(recipientName)}</p>
+                    <div style="background:var(--surface2);padding:16px;border-radius:var(--radius-sm);margin-bottom:12px;">
                         <textarea class="input-field" id="messageText" placeholder="Escribe un mensaje..."></textarea>
-                        <div class="input-group mt-8">
-                            <label style="font-size:0.8rem;">Adjuntar archivo o imagen</label>
-                            <input type="file" class="input-field" id="fileInput" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar,.mp4,.mp3,.mov,.avi,.webm" style="padding:10px;">
-                        </div>
-                        <div class="progress-bar-container hidden" id="progressContainer">
-                            <div class="progress-bar-fill" id="progressFill"></div>
-                        </div>
+                        <input type="file" class="input-field mt-8" id="fileInput">
+                        <div class="progress-bar-container hidden" id="progressContainer"><div class="progress-bar-fill" id="progressFill"></div></div>
                         <div class="status-bar mt-8" id="sendStatus"></div>
                         <button class="btn btn-accent mt-8" id="btnSend">📨 Enviar</button>
                     </div>
-                    <div class="received-section">
-                        <div class="received-title">📥 Bandeja de recepción</div>
-                        <div id="receivedMessages">
-                            <p style="color:var(--text2);font-size:0.85rem;text-align:center;">Esperando mensajes...</p>
-                        </div>
-                    </div>
+                    <div class="received-section"><div class="received-title">📥 Bandeja</div><div id="receivedMessages"></div></div>
                     <button class="btn btn-secondary mt-8" id="btnBackToConnect">← Cambiar destinatario</button>
-                </div>
-            `;
+                </div>`;
                 document.getElementById('btnSend').addEventListener('click', handleSend);
                 document.getElementById('btnDisconnect').addEventListener('click', () => {
                     stopListening();
+                    cleanupCall();
                     connectedRecipientID = null;
-                    recipientUID = null;
                     renderRoomConnectView();
                 });
                 document.getElementById('btnBackToConnect').addEventListener('click', () => {
                     stopListening();
+                    cleanupCall();
                     connectedRecipientID = null;
-                    recipientUID = null;
                     renderRoomConnectView();
                 });
-                document.getElementById('messageText').addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                    }
-                });
+                document.getElementById('btnCall').addEventListener('click', startCall);
                 loadExistingMessages();
             }
 
             async function loadExistingMessages() {
                 const container = document.getElementById('receivedMessages');
                 if (!container || !userProfile) return;
-                try {
-                    const snap = await db.ref('messages/' + userProfile.userID).once('value');
-                    container.innerHTML = '';
-                    if (snap.exists()) {
-                        const messages = snap.val();
-                        const entries = Object.entries(messages).sort((a, b) => (a[1].timestamp || 0) - (b[1]
-                            .timestamp || 0));
-                        if (entries.length === 0) {
-                            container.innerHTML =
-                                '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">Esperando mensajes...</p>';
-                        }
-                        entries.forEach(([key, msg]) => {
-                            if (msg.fromUID !== currentUser?.uid) {
-                                renderReceivedMessage(key, msg, false);
-                            }
-                        });
-                        if (entries.length > 0 && container.children.length === 0) {
-                            container.innerHTML =
-                                '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">Esperando mensajes...</p>';
-                        }
-                    } else {
-                        container.innerHTML =
-                            '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">Esperando mensajes...</p>';
-                    }
-                } catch (error) {
-                    console.error('Error loading messages:', error);
-                }
+                const snap = await db.ref('messages/' + userProfile.userID).once('value');
+                container.innerHTML = '';
+                if (snap.exists()) {
+                    const entries = Object.entries(snap.val()).sort((a, b) => (a[1].timestamp||0) - (b[1].timestamp||0));
+                    entries.forEach(([key, msg]) => { if (msg.fromUID !== currentUser?.uid) renderReceivedMessage(key, msg, false); });
+                    if (container.children.length === 0) container.innerHTML = '<p class="text-center text2">Sin mensajes aún</p>';
+                } else container.innerHTML = '<p class="text-center text2">Sin mensajes aún</p>';
             }
 
             async function handleSend() {
-                if (!connectedRecipientID || !userProfile) {
-                    showToast('Conéctate a un destinatario primero', 'error');
-                    return;
-                }
+                if (!connectedRecipientID || !userProfile) return;
                 const messageText = document.getElementById('messageText').value.trim();
-                const fileInput = document.getElementById('fileInput');
-                const file = fileInput.files[0];
-                const statusEl = document.getElementById('sendStatus');
-                const btn = document.getElementById('btnSend');
+                const file = document.getElementById('fileInput').files[0];
+                if (!messageText && !file) return showToast('Escribe un mensaje o adjunta archivo', 'error');
+                if (file && file.size > 15*1024*1024) return showToast('Archivo muy grande (máx 15MB)', 'error');
                 const progressContainer = document.getElementById('progressContainer');
                 const progressFill = document.getElementById('progressFill');
-
-                if (!messageText && !file) {
-                    showToast('Escribe un mensaje o adjunta un archivo', 'error');
-                    return;
-                }
-                if (file && file.size > 15 * 1024 * 1024) {
-                    showToast('El archivo es demasiado grande (máx. 15MB)', 'error');
-                    return;
-                }
-
-                // Mostrar ETA de subida
+                const statusEl = document.getElementById('sendStatus');
                 if (file) {
-                    const etaSeconds = estimateUploadTime(file.size);
-                    const etaFormatted = formatETA(etaSeconds);
-                    if (statusEl) statusEl.textContent = `⏳ Subida estimada: ~${etaFormatted} (${(file.size/(1024*1024)).toFixed(2)} MB)`;
                     progressContainer.classList.remove('hidden');
                     progressFill.style.width = '0%';
+                    statusEl.textContent = `⏳ Subida estimada ~${formatETA(estimateUploadTime(file.size))}`;
                 }
-
+                const btn = document.getElementById('btnSend');
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner"></span> Enviando...';
-
                 try {
-                    const success = await sendDataToRecipient(connectedRecipientID, messageText || null, file || null,
-                        (progress, bytesTransferred, totalBytes) => {
-                            if (progressFill) progressFill.style.width = progress + '%';
-                            const remainingBytes = totalBytes - bytesTransferred;
-                            const remainingSeconds = estimateUploadTime(remainingBytes);
-                            if (statusEl) statusEl.textContent =
-                                `⏳ Subiendo... ${Math.round(progress)}% (restante ~${formatETA(remainingSeconds)})`;
-                        });
-                    if (success) {
-                        showToast('✅ Enviado correctamente', 'success');
-                        document.getElementById('messageText').value = '';
-                        fileInput.value = '';
-                        if (statusEl) statusEl.textContent = '✅ Enviado correctamente';
-                        progressContainer.classList.add('hidden');
-                        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
-                    }
-                } catch (error) {
-                    console.error('Error sending:', error);
-                    showToast('Error al enviar. Intenta de nuevo.', 'error');
-                    if (statusEl) statusEl.textContent = '❌ Error al enviar';
+                    await sendDataToRecipient(connectedRecipientID, messageText || null, file || null, (p, transferred, total) => {
+                        progressFill.style.width = p+'%';
+                        statusEl.textContent = `⏳ ${Math.round(p)}% restante ~${formatETA(estimateUploadTime(total-transferred))}`;
+                    });
+                    showToast('✅ Enviado', 'success');
+                    document.getElementById('messageText').value = '';
+                    document.getElementById('fileInput').value = '';
+                    progressContainer.classList.add('hidden');
+                    statusEl.textContent = '';
+                } catch (e) {
+                    showToast('Error al enviar', 'error');
                     progressContainer.classList.add('hidden');
                 } finally {
                     btn.disabled = false;
@@ -1270,9 +1152,6 @@
                 }
             }
 
-            // ══════════════════════════════════════
-            // 📥 NUEVA VISTA DE MENSAJES (HISTORIAL)
-            // ══════════════════════════════════════
             function renderMessagesView() {
                 currentView = 'messagesView';
                 stopListening();
@@ -1280,133 +1159,232 @@
                 <div class="card">
                     <h1 class="main-title" style="font-size:1.8rem;">📥 Mensajes</h1>
                     <p class="subtitle">Historial de mensajes y archivos recibidos</p>
-                    <div class="received-section">
-                        <div class="received-title">Todos los mensajes recibidos</div>
-                        <div id="receivedMessages">
-                            <p style="color:var(--text2);font-size:0.85rem;text-align:center;">Cargando historial...</p>
-                        </div>
-                    </div>
-                    <button class="btn btn-secondary mt-16" id="btnBackFromMessages">← Volver al inicio</button>
-                    <div class="status-bar mt-8" id="messagesStatus"></div>
-                </div>
-            `;
-                document.getElementById('btnBackFromMessages').addEventListener('click', () => {
-                    pendingRedirect = null;
-                    renderMainView();
-                });
+                    <div class="received-section"><div class="received-title">Todos los mensajes</div><div id="receivedMessages"></div></div>
+                    <button class="btn btn-secondary mt-16" id="btnBackFromMessages">← Volver</button>
+                </div>`;
+                document.getElementById('btnBackFromMessages').addEventListener('click', () => { pendingRedirect = null;
+                    renderMainView(); });
                 loadAllMessages();
             }
 
             async function loadAllMessages() {
                 const container = document.getElementById('receivedMessages');
-                const statusEl = document.getElementById('messagesStatus');
                 if (!container || !userProfile) return;
+                const snap = await db.ref('messages/' + userProfile.userID).once('value');
+                container.innerHTML = '';
+                if (snap.exists()) {
+                    const entries = Object.entries(snap.val()).sort((a,b) => (b[1].timestamp||0)-(a[1].timestamp||0));
+                    entries.forEach(([key, msg]) => renderReceivedMessage(key, msg, false));
+                    if (container.children.length===0) container.innerHTML='<p class="text-center text2">No tienes mensajes.</p>';
+                } else container.innerHTML='<p class="text-center text2">No tienes mensajes.</p>';
+            }
+
+            // ══════════════════════════════════════
+            // 📞 WEBRTC - VIDEOLAMADA
+            // ══════════════════════════════════════
+            async function startCall() {
+                if (!connectedRecipientID || !userProfile) return;
                 try {
-                    if (statusEl) statusEl.textContent = 'Cargando mensajes...';
-                    const snap = await db.ref('messages/' + userProfile.userID).once('value');
-                    container.innerHTML = '';
-                    if (snap.exists()) {
-                        const messages = snap.val();
-                        const entries = Object.entries(messages).sort((a, b) => (b[1].timestamp || 0) - (a[1]
-                            .timestamp || 0));
-                        if (entries.length === 0) {
-                            container.innerHTML =
-                                '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">No tienes mensajes todavía.</p>';
-                        }
-                        entries.forEach(([key, msg]) => {
-                            renderReceivedMessage(key, msg, false);
-                        });
-                    } else {
-                        container.innerHTML =
-                            '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">No tienes mensajes todavía.</p>';
-                    }
-                    if (statusEl) statusEl.textContent = entries ? `${entries.length} mensaje(s) encontrado(s)` :
-                        '0 mensajes';
-                } catch (error) {
-                    console.error('Error loading all messages:', error);
-                    container.innerHTML =
-                        '<p style="color:var(--text2);font-size:0.85rem;text-align:center;">Error al cargar mensajes.</p>';
-                    if (statusEl) statusEl.textContent = 'Error';
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                } catch (e) {
+                    showToast('Permiso de cámara/micrófono denegado', 'error');
+                    return;
                 }
+                const callId = connectedRecipientID;
+                peerConnection = new RTCPeerConnection(servers);
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        db.ref(`calls/${callId}/candidates/${userProfile.userID}`).push(event.candidate.toJSON());
+                    }
+                };
+                peerConnection.ontrack = (event) => {
+                    document.getElementById('remoteVideo').srcObject = event.streams[0];
+                };
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                await db.ref(`calls/${callId}`).set({
+                    callerID: userProfile.userID,
+                    callerName: userProfile.username,
+                    offer: { type: offer.type, sdp: offer.sdp },
+                    status: 'calling'
+                });
+                currentCallData = { callId, targetID: callId };
+                showCallModal();
+                listenForAnswer(callId);
+            }
+
+            function listenForIncomingCall() {
+                if (!userProfile) return;
+                const myCallRef = db.ref(`calls/${userProfile.userID}`);
+                myCallRef.off('value');
+                myCallRef.on('value', async (snap) => {
+                    const data = snap.val();
+                    if (!data || data.status !== 'calling' || callActive) return;
+                    if (data.callerID === currentUser?.uid) return;
+                    showIncomingCallNotification(data);
+                });
+            }
+
+            function showIncomingCallNotification(callData) {
+                const existing = document.getElementById('incomingCallToast');
+                if (existing) existing.remove();
+                const toast = document.createElement('div');
+                toast.id = 'incomingCallToast';
+                toast.className = 'toast incoming-call-toast';
+                toast.style.position = 'fixed';
+                toast.style.top = '30%';
+                toast.style.left = '50%';
+                toast.style.transform = 'translate(-50%, -50%)';
+                toast.style.zIndex = '10001';
+                toast.innerHTML = `
+                    <strong>📞 ${escapeHTML(callData.callerName)} te está llamando...</strong>
+                    <div class="gap-8">
+                        <button class="btn btn-accent btn-sm" id="acceptCall">Aceptar</button>
+                        <button class="btn btn-secondary btn-sm" id="rejectCall">Rechazar</button>
+                    </div>`;
+                document.body.appendChild(toast);
+                document.getElementById('acceptCall').addEventListener('click', () => {
+                    toast.remove();
+                    acceptIncomingCall(callData);
+                });
+                document.getElementById('rejectCall').addEventListener('click', () => {
+                    toast.remove();
+                    db.ref(`calls/${userProfile.userID}`).remove();
+                });
+            }
+
+            async function acceptIncomingCall(callData) {
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                } catch (e) {
+                    showToast('Permiso de cámara denegado', 'error');
+                    return;
+                }
+                const callId = userProfile.userID;
+                peerConnection = new RTCPeerConnection(servers);
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        db.ref(`calls/${callId}/candidates/${userProfile.userID}`).push(event.candidate.toJSON());
+                    }
+                };
+                peerConnection.ontrack = (event) => {
+                    document.getElementById('remoteVideo').srcObject = event.streams[0];
+                };
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                await db.ref(`calls/${callId}`).update({
+                    answer: { type: answer.type, sdp: answer.sdp },
+                    status: 'active'
+                });
+                currentCallData = { callId, targetID: callId };
+                showCallModal();
+                collectCandidates(callId);
+            }
+
+            function listenForAnswer(callId) {
+                db.ref(`calls/${callId}/answer`).on('value', async (snap) => {
+                    const answer = snap.val();
+                    if (answer && peerConnection && peerConnection.signalingState !== 'stable') {
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                    }
+                });
+                collectCandidates(callId);
+            }
+
+            function collectCandidates(callId) {
+                db.ref(`calls/${callId}/candidates`).on('child_added', async (snap) => {
+                    const candidates = snap.val();
+                    if (candidates && peerConnection) {
+                        const keys = Object.keys(candidates);
+                        for (let key of keys) {
+                            if (candidates[key] && candidates[key].candidate) {
+                                try {
+                                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidates[key]));
+                                } catch (e) {}
+                            }
+                        }
+                    }
+                });
+            }
+
+            function showCallModal() {
+                const existing = document.getElementById('callModal');
+                if (existing) existing.remove();
+                const modal = document.createElement('div');
+                modal.id = 'callModal';
+                modal.className = 'call-modal';
+                modal.innerHTML = `
+                    <div class="video-container">
+                        <video id="localVideo" autoplay muted playsinline></video>
+                        <video id="remoteVideo" autoplay playsinline></video>
+                    </div>
+                    <button class="btn-call-end" id="hangUpBtn">🔴 Colgar</button>`;
+                document.body.appendChild(modal);
+                document.getElementById('localVideo').srcObject = localStream;
+                document.getElementById('hangUpBtn').addEventListener('click', cleanupCall);
+                callActive = true;
+            }
+
+            function cleanupCall() {
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                    localStream = null;
+                }
+                if (peerConnection) {
+                    peerConnection.close();
+                    peerConnection = null;
+                }
+                if (currentCallData) {
+                    db.ref(`calls/${currentCallData.callId}`).remove();
+                    currentCallData = null;
+                }
+                const modal = document.getElementById('callModal');
+                if (modal) modal.remove();
+                const incoming = document.getElementById('incomingCallToast');
+                if (incoming) incoming.remove();
+                callActive = false;
             }
 
             function handleLogout() {
                 stopListening();
+                cleanupCall();
                 auth.signOut().then(() => {
                     userProfile = null;
                     connectedRecipientID = null;
-                    recipientUID = null;
                     pendingRedirect = null;
-                    authMode = 'login';
                     renderMainView();
-                    showToast('Sesión cerrada', 'info');
-                }).catch(err => {
-                    console.error('Logout error:', err);
-                    showToast('Error al cerrar sesión', 'error');
                 });
             }
 
-            // ══════════════════════════════════════
-            // 🔄 AUTH STATE LISTENER
-            // ══════════════════════════════════════
             auth.onAuthStateChanged(async (user) => {
-                const wasLoggedIn = !!currentUser;
                 currentUser = user;
                 if (user) {
-                    const profile = await fetchUserProfile(user.uid);
-                    userProfile = profile;
-                    if (!wasLoggedIn && currentView === 'auth') {
-                        proceedAfterAuth();
-                    } else if (!wasLoggedIn && currentView === 'main') {} else if (currentView === 'main' &&
-                        pendingRedirect) {
-                        proceedAfterAuth();
-                    }
+                    userProfile = await fetchUserProfile(user.uid);
+                    if (currentView === 'auth') proceedAfterAuth();
                 } else {
                     userProfile = null;
                     stopListening();
-                    connectedRecipientID = null;
-                    recipientUID = null;
-                    if (currentView !== 'main' && currentView !== 'auth') {
-                        renderMainView();
-                    }
-                }
-                if (currentView === 'main') {
-                    updateConnectionStatus();
+                    cleanupCall();
+                    if (currentView !== 'main') renderMainView();
                 }
             });
 
-            // ══════════════════════════════════════
-            // 🌐 CONNECTION LISTENERS
-            // ══════════════════════════════════════
-            window.addEventListener('online', () => {
-                updateConnectionStatus();
-                showToast('Conexión restablecida', 'success', 2000);
-            });
-            window.addEventListener('offline', () => {
-                updateConnectionStatus();
-                showToast('Sin conexión a internet', 'error', 3000);
-            });
-
-            const connectedRef = db.ref('.info/connected');
-            connectedRef.on('value', (snap) => {
-                const fbConnected = snap.val() === true;
+            window.addEventListener('online', updateConnectionStatus);
+            window.addEventListener('offline', updateConnectionStatus);
+            db.ref('.info/connected').on('value', (snap) => {
                 const dot = document.getElementById('statusDot');
                 const text = document.getElementById('statusText');
-                if (dot && text && currentView === 'main') {
-                    dot.className = 'status-dot ' + (fbConnected ? 'online' : 'offline');
-                    text.textContent = fbConnected ? 'Conectado' : 'Sin conexión al servidor';
+                if (dot && text) {
+                    dot.className = 'status-dot ' + (snap.val() ? 'online' : 'offline');
+                    text.textContent = snap.val() ? 'Conectado' : 'Desconectado';
                 }
             });
 
-            // ══════════════════════════════════════
-            // 🚀 INICIO
-            // ══════════════════════════════════════
             renderMainView();
-
-            console.log('🚀 Air-drop — Dashboard, Room & Mensajes inicializado');
-            console.log('📡 Firebase proyect:', firebaseConfig.projectId);
-            console.log('👤 Auth state:', auth.currentUser ? 'Logged in' : 'Not logged in');
-            console.log('💡 Dashboard: tu ID | Room: conectar y enviar | Mensajes: historial completo');
+            console.log('🚀 Air-drop con videollamadas activo');
         })();
     </script>
 </body>
