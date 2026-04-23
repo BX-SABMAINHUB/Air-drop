@@ -26,6 +26,8 @@
             --neon-blue: #4da8ff;
             --neon-purple: #9b5eff;
             --neon-green: #4dca7a;
+            --gold: #f5b042;
+            --gold-light: #ffd966;
             --neon-glow-blue: 0 0 20px rgba(77, 168, 255, 0.5), 0 0 60px rgba(77, 168, 255, 0.2);
             --neon-glow-purple: 0 0 20px rgba(155, 94, 255, 0.5), 0 0 60px rgba(155, 94, 255, 0.2);
             --radius: 16px;
@@ -223,6 +225,16 @@
         .btn-call:hover {
             transform: translateY(-2px);
             box-shadow: 0 0 20px rgba(0, 180, 255, 0.6);
+        }
+        .btn-shop {
+            background: linear-gradient(135deg, #f5b042, #d18d2c);
+            color: #0a0a0f;
+            font-weight: 700;
+            box-shadow: 0 4px 18px rgba(245, 176, 66, 0.4);
+        }
+        .btn-shop:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 28px rgba(245, 176, 66, 0.7);
         }
         .btn:active {
             transform: scale(0.97);
@@ -625,12 +637,13 @@
             let recipientUID = null;
             const ASSUMED_UPLOAD_SPEED_BPS = 1.2 * 1024 * 1024;
             const ASSUMED_DOWNLOAD_SPEED_BPS = 2.5 * 1024 * 1024;
+            const PAYPAL_LINK = "https://www.paypal.com/ncp/payment/HLS5BCUTYM4BA";
 
             // WebRTC
             let localStream = null;
             let peerConnection = null;
             let callActive = false;
-            let currentCallData = null; // { callId, targetID }
+            let currentCallData = null;
 
             const servers = {
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -851,6 +864,7 @@
                     <button class="btn btn-primary" id="btnDashboard">📊 Dashboard</button>
                     <button class="btn btn-accent" id="btnRoom">💬 Room</button>
                     <button class="btn btn-messages" id="btnMessages">📥 Mensajes</button>
+                    <button class="btn btn-shop" id="btnShop">🛒 Tienda</button>
                     <div class="status-bar mt-16" id="statusBar">
                         <span class="status-dot" id="statusDot"></span>
                         <span id="statusText">Verificando conexión...</span>
@@ -867,6 +881,10 @@
                 });
                 document.getElementById('btnMessages').addEventListener('click', () => {
                     pendingRedirect = 'messages';
+                    checkAuthAndProceed();
+                });
+                document.getElementById('btnShop').addEventListener('click', () => {
+                    pendingRedirect = 'shop';
                     checkAuthAndProceed();
                 });
                 updateConnectionStatus();
@@ -899,6 +917,7 @@
                         if (pendingRedirect === 'dashboard') renderShowIDView();
                         else if (pendingRedirect === 'room') renderRoomConnectView();
                         else if (pendingRedirect === 'messages') renderMessagesView();
+                        else if (pendingRedirect === 'shop') renderShopView();
                         else renderMainView();
                     }
                 }).catch(err => {
@@ -985,6 +1004,7 @@
                     showToast('¡Perfil creado!', 'success');
                     if (pendingRedirect === 'room') renderRoomConnectView();
                     else if (pendingRedirect === 'messages') renderMessagesView();
+                    else if (pendingRedirect === 'shop') renderShopView();
                     else renderShowIDView();
                 } catch (e) {
                     showToast('Error al guardar', 'error');
@@ -1004,13 +1024,13 @@
                     <button class="btn btn-primary mt-16" id="btnCopyID">📋 Copiar ID</button>
                     <button class="btn btn-accent" id="btnGoRoom">💬 Ir a Room</button>
                     <button class="btn btn-messages" id="btnGoMessages">📥 Ver Mensajes</button>
+                    <button class="btn btn-shop" id="btnGoShop">🛒 Tienda</button>
                     <button class="btn btn-secondary" id="btnLogoutID">Cerrar sesión</button>
                 </div>`;
                 document.getElementById('btnCopyID').addEventListener('click', () => navigator.clipboard.writeText(idToShow).then(() => showToast('¡ID copiado!', 'success')));
-                document.getElementById('btnGoRoom').addEventListener('click', () => { pendingRedirect = 'room';
-                    renderRoomConnectView(); });
-                document.getElementById('btnGoMessages').addEventListener('click', () => { pendingRedirect = 'messages';
-                    renderMessagesView(); });
+                document.getElementById('btnGoRoom').addEventListener('click', () => { pendingRedirect = 'room'; renderRoomConnectView(); });
+                document.getElementById('btnGoMessages').addEventListener('click', () => { pendingRedirect = 'messages'; renderMessagesView(); });
+                document.getElementById('btnGoShop').addEventListener('click', () => { pendingRedirect = 'shop'; renderShopView(); });
                 document.getElementById('btnLogoutID').addEventListener('click', handleLogout);
             }
 
@@ -1162,8 +1182,7 @@
                     <div class="received-section"><div class="received-title">Todos los mensajes</div><div id="receivedMessages"></div></div>
                     <button class="btn btn-secondary mt-16" id="btnBackFromMessages">← Volver</button>
                 </div>`;
-                document.getElementById('btnBackFromMessages').addEventListener('click', () => { pendingRedirect = null;
-                    renderMainView(); });
+                document.getElementById('btnBackFromMessages').addEventListener('click', () => { pendingRedirect = null; renderMainView(); });
                 loadAllMessages();
             }
 
@@ -1177,6 +1196,125 @@
                     entries.forEach(([key, msg]) => renderReceivedMessage(key, msg, false));
                     if (container.children.length===0) container.innerHTML='<p class="text-center text2">No tienes mensajes.</p>';
                 } else container.innerHTML='<p class="text-center text2">No tienes mensajes.</p>';
+            }
+
+            // ══════════════════════════════════════
+            // 🛒 TIENDA (NUEVA VISTA)
+            // ══════════════════════════════════════
+            function renderShopView() {
+                currentView = 'shop';
+                appContainer.innerHTML = `
+                <div class="card">
+                    <h1 class="main-title" style="font-size:1.8rem;">🛒 Tienda Premium</h1>
+                    <p class="subtitle">Desbloquea envíos de hasta 2 GB, emojis y más</p>
+                    <div id="shopStep1">
+                        <div class="input-group"><label>Introduce tu ID de usuario</label><input type="text" class="input-field" id="shopUserIdInput" placeholder="Ej: 482193" maxlength="6"></div>
+                        <button class="btn btn-accent" id="btnVerifyShopID">🔍 Verificar ID</button>
+                        <p class="status-bar" id="shopStatus1"></p>
+                    </div>
+                    <div id="shopStep2" class="hidden">
+                        <p style="text-align:center;font-weight:600;" id="shopUserName"></p>
+                        <ul style="list-style:none;margin:16px 0;color:var(--text);">
+                            <li>✨ Envío de archivos hasta <strong>2 GB</strong></li>
+                            <li>😎 Nombre con emojis</li>
+                            <li>⚡ Mayor velocidad de transferencia</li>
+                        </ul>
+                        <p style="text-align:center;font-weight:700;color:var(--gold-light);">2,99 €</p>
+                        <button class="btn btn-shop" id="btnPayPal">💳 Pagar con PayPal</button>
+                        <button class="btn btn-accent mt-8" id="btnConfirmPayment">✅ He completado el pago</button>
+                        <p class="status-bar" id="shopStatus2"></p>
+                    </div>
+                    <button class="btn btn-secondary mt-8" id="btnBackFromShop">← Volver</button>
+                </div>`;
+                document.getElementById('btnVerifyShopID').addEventListener('click', verifyShopID);
+                document.getElementById('btnPayPal').addEventListener('click', () => {
+                    window.open(PAYPAL_LINK, '_blank');
+                    showToast('Completa el pago en PayPal y luego presiona "He completado el pago"', 'info', 5000);
+                });
+                document.getElementById('btnConfirmPayment').addEventListener('click', activatePremium);
+                document.getElementById('btnBackFromShop').addEventListener('click', () => {
+                    pendingRedirect = null;
+                    renderMainView();
+                });
+            }
+
+            async function verifyShopID() {
+                const rawID = document.getElementById('shopUserIdInput').value.trim();
+                const statusEl = document.getElementById('shopStatus1');
+                if (!/^\d{6}$/.test(rawID)) {
+                    showToast('ID inválido (6 dígitos)', 'error');
+                    return;
+                }
+                const btn = document.getElementById('btnVerifyShopID');
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Verificando...';
+                try {
+                    const mapSnap = await db.ref('userIDMap/' + rawID).once('value');
+                    if (!mapSnap.exists()) {
+                        showToast('Ese ID no existe en Air‑drop', 'error');
+                        statusEl.textContent = 'ID no encontrado';
+                        btn.disabled = false;
+                        btn.innerHTML = '🔍 Verificar ID';
+                        return;
+                    }
+                    const uid = mapSnap.val();
+                    const userSnap = await db.ref('users/' + uid).once('value');
+                    if (!userSnap.exists()) {
+                        showToast('Perfil no encontrado', 'error');
+                        statusEl.textContent = 'Perfil no encontrado';
+                        btn.disabled = false;
+                        btn.innerHTML = '🔍 Verificar ID';
+                        return;
+                    }
+                    const profile = userSnap.val();
+                    document.getElementById('shopStep1').classList.add('hidden');
+                    document.getElementById('shopStep2').classList.remove('hidden');
+                    document.getElementById('shopUserName').textContent = `👤 ${profile.username || 'Usuario'} (ID: ${rawID})`;
+                    if (profile.premium) {
+                        document.getElementById('shopStatus2').textContent = '✅ Ya tienes Premium activado.';
+                        document.getElementById('btnPayPal').classList.add('hidden');
+                        document.getElementById('btnConfirmPayment').classList.add('hidden');
+                    }
+                    statusEl.textContent = '';
+                } catch (e) {
+                    showToast('Error al verificar', 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '🔍 Verificar ID';
+                }
+            }
+
+            async function activatePremium() {
+                const rawID = document.getElementById('shopUserIdInput').value.trim();
+                if (!rawID) return;
+                const statusEl = document.getElementById('shopStatus2');
+                const btn = document.getElementById('btnConfirmPayment');
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Activando...';
+                try {
+                    const mapSnap = await db.ref('userIDMap/' + rawID).once('value');
+                    if (!mapSnap.exists()) {
+                        showToast('ID no válido', 'error');
+                        btn.disabled = false;
+                        btn.innerHTML = '✅ He completado el pago';
+                        return;
+                    }
+                    const uid = mapSnap.val();
+                    await db.ref('users/' + uid).update({
+                        premium: true,
+                        maxFileSize: 2147483648,
+                        allowEmojis: true,
+                        premiumActivatedAt: firebase.database.ServerValue.TIMESTAMP
+                    });
+                    showToast('🎉 ¡Premium activado! Disfruta de los beneficios.', 'success');
+                    statusEl.textContent = '✅ Premium activado correctamente.';
+                    document.getElementById('btnPayPal').classList.add('hidden');
+                    btn.classList.add('hidden');
+                } catch (e) {
+                    showToast('Error al activar Premium', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '✅ He completado el pago';
+                }
             }
 
             // ══════════════════════════════════════
@@ -1384,7 +1522,7 @@
             });
 
             renderMainView();
-            console.log('🚀 Air-drop con videollamadas activo');
+            console.log('🚀 Air-drop con Tienda Premium activo');
         })();
     </script>
 </body>
